@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
+  "type": "datasource",
+  "name": "ZincObserve",
+  "id": "zinc-grafanatest-datasource",
+  "metrics": true,
+  "info": {
+    "description": "Zinc observe",
+    "author": {
+      "name": "Zinc"
+    },
+    "keywords": ["ZincObserve"],
+    "logos": {
+      "small": "img/logo.svg",
+      "large": "img/logo.svg"
+    },
+    "links": [],
+    "screenshots": [],
+    "version": "%VERSION%",
+    "updated": "%TODAY%"
+  },
+  "dependencies": {
+    "grafanaDependency": "^9.3.8",
+    "plugins": []
+  },
+  "logs": true
+}
