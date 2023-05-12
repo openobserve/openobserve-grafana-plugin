@@ -19,20 +19,14 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     super(instanceSettings);
     this.url = instanceSettings.url || '';
     // this.name = instanceSettings.name;
-    console.log(instanceSettings, this.url);
     this.instanceSettings = instanceSettings;
   }
 
   async query(options: DataQueryRequest<MyQuery>): Promise<DataQueryResponse> {
-    console.log('query zinc observe', { ...options }, this.url);
     const { range } = options;
     const from = range!.from.valueOf();
     const to = range!.to.valueOf();
 
-    console.log('query zinc observe', { ...options }, this.url);
-    // const { range } = options;
-    // const from = range!.from.valueOf();
-    // const to = range!.to.valueOf();
     const promises = options.targets.map((target) => {
       // Your code goes here.
       return this.doRequest(target)
@@ -54,7 +48,6 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
             ],
           });
           response.data.hits.forEach((point: any) => {
-            console.log(point);
             frame.appendRow([
               point.time,
               point.log,
@@ -66,25 +59,11 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
               point.kubernetes_host,
             ]);
           });
-          console.log(frame);
           return frame;
         })
         .catch((err) => console.log(err));
     });
 
-    // return Promise.all(promises).then((data) => ({ data }));
-    // Return a constant for each query.
-    // const data = options.targets.map((target) => {
-    //   return new MutableDataFrame({
-    //     refId: target.refId,
-    //     fields: [
-    //       { name: 'Time', values: [from, to], type: FieldType.time },
-    //       { name: 'Value', values: [target.constant, target.constant], type: FieldType.number },
-    //     ],
-    //   });
-    // });
-    // console.log('promises');
-    // return { data: [] };
     return Promise.all(promises).then((data) => {
       console.log({ data: data || [] });
       return { data: data || [] };
@@ -93,13 +72,10 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
 
   async doRequest(target: any) {
     const headers: any = {};
-    // headers = options.headers || {};
     headers['Content-Type'] = 'application/x-ndjson';
-    // const query = defaults(target, { query: target.queryText });
-    // console.log(query);
     return getBackendSrv().datasourceRequest({
       method: 'POST',
-      url: this.url,
+      url: this.url + '/_search',
       params: {
         type: 'logs',
       },
