@@ -106,7 +106,12 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           align-items: center;
         `}
       >
-        <InlineLabel width={17} tooltip="Select stream to get logs">
+        <InlineLabel
+          className={css`
+            width: fit-content;
+          `}
+          transparent
+        >
           Select Stream
         </InlineLabel>
         <Select
