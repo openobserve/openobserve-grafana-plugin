@@ -5,12 +5,13 @@ import {
   DataSourceInstanceSettings,
   MutableDataFrame,
   FieldType,
+  QueryFixAction,
 } from '@grafana/data';
 
 import { getBackendSrv } from '@grafana/runtime';
 
-import { MyQuery, MyDataSourceOptions } from './types';
-
+import { MyQuery, MyDataSourceOptions, TimeRange } from './types';
+import { b64EncodeUnicode } from 'utils/zincutils';
 export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   instanceSettings?: DataSourceInstanceSettings<MyDataSourceOptions>;
   url: string;
@@ -19,17 +20,25 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     super(instanceSettings);
     this.url = instanceSettings.url || '';
     // this.name = instanceSettings.name;
+    console.log(instanceSettings);
     this.instanceSettings = instanceSettings;
   }
 
-  async query(options: DataQueryRequest<MyQuery>): Promise<DataQueryResponse> {
-    const { range } = options;
-    const from = range!.from.valueOf();
-    const to = range!.to.valueOf();
+  getConsumableTime(range: any) {
+    const startTimeInMicro: any = new Date(new Date(range!.from.valueOf()).toISOString()).getTime() * 1000;
+    const endTimeInMirco: any = new Date(new Date(range!.to.valueOf()).toISOString()).getTime() * 1000;
+    return {
+      startTimeInMicro,
+      endTimeInMirco,
+    };
+  }
 
+  async query(options: DataQueryRequest<MyQuery>): Promise<DataQueryResponse> {
+    const timestamps = this.getConsumableTime(options.range);
     const promises = options.targets.map((target) => {
       // Your code goes here.
-      return this.doRequest(target)
+      const reqData = this.buildQuery(target, timestamps);
+      return this.doRequest(reqData)
         .then((response) => {
           const frame = new MutableDataFrame({
             refId: target.refId,
@@ -65,12 +74,11 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     });
 
     return Promise.all(promises).then((data) => {
-      console.log({ data: data || [] });
       return { data: data || [] };
     });
   }
 
-  async doRequest(target: any) {
+  async doRequest(data: any) {
     const headers: any = {};
     headers['Content-Type'] = 'application/x-ndjson';
     return getBackendSrv().datasourceRequest({
@@ -79,15 +87,7 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
       params: {
         type: 'logs',
       },
-      data: {
-        query: {
-          sql: 'select * from "gke-fluentbit" ',
-          start_time: 1683866197007000,
-          end_time: 1683867097007000,
-          from: 0,
-          size: 150,
-        },
-      },
+      data,
     });
   }
 
@@ -97,5 +97,88 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
       status: 'success',
       message: 'Success saved',
     };
+  }
+
+  modifyQuery(query: MyQuery, action: QueryFixAction): any {
+    if (!action.options) {
+      return query;
+    }
+
+    let expression = query.query ?? '';
+    switch (action.type) {
+      case 'ADD_FILTER': {
+        if (expression.length > 0) {
+          expression += ' and ';
+        }
+        expression += `${action.options.key}="${action.options.value}"`;
+        break;
+      }
+      case 'ADD_FILTER_OUT': {
+        if (expression.length > 0) {
+          expression += ' and ';
+        }
+        expression += `${action.options.key}!="${action.options.value}"`;
+        break;
+      }
+    }
+    return { ...query, query: expression };
+  }
+
+  buildQuery(queryData: MyQuery, timestamps: TimeRange) {
+    try {
+      let query: string = queryData.query || '';
+
+      let req: any = {
+        query: {
+          sql: 'select * from "[INDEX_NAME]" [WHERE_CLAUSE]',
+          start_time: timestamps.startTimeInMicro,
+          end_time: timestamps.endTimeInMirco,
+          size: 150,
+          sql_mode: 'full',
+        },
+      };
+
+      if (!queryData.sqlMode) {
+        let whereClause = query;
+
+        if (query.trim().length) {
+          whereClause = whereClause
+            .replace(/=(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' =')
+            .replace(/>(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' >')
+            .replace(/<(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' <');
+
+          whereClause = whereClause
+            .replace(/!=(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' !=')
+            .replace(/! =(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' !=')
+            .replace(/< =(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' <=')
+            .replace(/> =(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' >=');
+
+          const parsedSQL = whereClause.split(' ');
+          queryData.streamFields.forEach((field: any) => {
+            parsedSQL.forEach((node: any, index: any) => {
+              if (node === field.name) {
+                node = node.replaceAll('"', '');
+                parsedSQL[index] = '"' + node + '"';
+              }
+            });
+          });
+
+          whereClause = parsedSQL.join(' ');
+
+          req.query.sql = req.query.sql.replace('[WHERE_CLAUSE]', ' WHERE ' + whereClause);
+        } else {
+          req.query.sql = req.query.sql.replace('[WHERE_CLAUSE]', '');
+        }
+
+        req.query.sql = req.query.sql.replace('[INDEX_NAME]', queryData.stream);
+      }
+
+      req['encoding'] = 'base64';
+      req.query.sql = b64EncodeUnicode(req.query.sql);
+
+      return req;
+    } catch (e) {
+      console.log('error in building query:', e);
+    }
   }
 }

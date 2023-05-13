@@ -1,9 +1,9 @@
 import React, { MutableRefObject, useEffect, useRef, useState } from 'react';
-import { InlineLabel, Label, QueryField, Select } from '@grafana/ui';
+import { InlineLabel, QueryField, Select } from '@grafana/ui';
 import { QueryEditorProps } from '@grafana/data';
 import { DataSource } from '../datasource';
 import { MyDataSourceOptions, MyQuery } from '../types';
-import { Streams } from '../streams';
+import { getStreams, getStreamSchema } from '../streams';
 import { css } from '@emotion/css';
 
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
@@ -12,51 +12,42 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
   const myRef: MutableRefObject<string> = useRef('');
   const queryValue: string = myRef.current;
 
-  // const onQueryTextChange = (event: ChangeEvent<HTMLInputElement>) => {
-  //   onChange({ ...query, queryText: event.target.value });
-  // };
-  // const promises = options.targets.map((target) => {
-  //   // Your code goes here.
-  //   // this.doRequest(target);
-  // });
-
-  // return Promise.all(promises).then((data) => ({ data }));
-  // const onConstantChange = (event: ChangeEvent<HTMLInputElement>) => {
-  //   onChange({ ...query, constant: parseFloat(event.target.value) });
-  //   // executes the query
-  //   onRunQuery();
-  // };
-
-  // const { queryText, constant } = query;
-  // const [streams, setStreams]: any = useState();
-
-  // setStreams(new Streams(datasource.url));
   const [streams, setStreams]: any = useState([]);
 
   useEffect(() => {
-    new Streams(datasource.url).getStreams().then((response: any) => {
-      console.log(response);
+    getStreams(datasource.url).then((response: any) => {
       setStreams([
         ...response.list.map((stream: any) => ({
           label: stream.name,
           value: stream.name,
         })),
       ]);
-      onChange({ ...query, stream: response.list[0].name });
+      onChange({
+        ...query,
+        query: query.query || '',
+        stream: response.list[0].name,
+        streamFields: response.list[0].schema,
+      });
       onRunQuery();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onChangeQuery = (queryText: string) => {
-    onChange({ ...query, queryText, queryType: 'logs' });
+    onChange({ ...query, query: queryText, queryType: 'logs' });
     console.log(query);
   };
 
-  const streamUpdated = (stream: string) => {
-    console.log('stream updated', stream);
-    onChange({ ...query, stream: stream });
-    onRunQuery();
+  const streamUpdated = (stream: { label: string; value: string }) => {
+    console.log(datasource.instanceSettings);
+    getStreamSchema({ url: datasource.url, stream: stream.value }).then((response: any) => {
+      onChange({
+        ...query,
+        stream: stream.value,
+        streamFields: response.schema,
+      });
+      onRunQuery();
+    });
   };
   return (
     <div>
@@ -80,7 +71,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
         ></Select>
       </div>
       <QueryField
-        query={queryValue}
+        query={query.query}
         // By default QueryField calls onChange if onBlur is not defined, this will trigger a rerender
         // And slate will claim the focus, making it impossible to leave the field.
         onBlur={() => {}}

@@ -1,9 +1,16 @@
-import { DataQuery, DataSourceJsonData } from '@grafana/data';
+import { DataQuery, DataSourceApi, DataSourceJsonData } from '@grafana/data';
 
 export interface MyQuery extends DataQuery {
-  queryText?: string;
+  query: string;
   constant: number;
   stream?: string;
+  startTimeInMicro?: number;
+  endTimeInMicro?: number;
+  sqlMode: false;
+  pagination?: {
+    rows: number;
+  };
+  streamFields: any[];
 }
 
 export const DEFAULT_QUERY: Partial<MyQuery> = {
@@ -23,4 +30,9 @@ export interface MyDataSourceOptions extends DataSourceJsonData {
  */
 export interface MySecureJsonData {
   apiKey?: string;
+}
+
+export interface TimeRange {
+  startTimeInMicro: number;
+  endTimeInMirco: number;
 }
