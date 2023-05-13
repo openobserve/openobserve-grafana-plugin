@@ -12,11 +12,17 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
   const myRef: MutableRefObject<string> = useRef('');
   const queryValue: string = myRef.current;
 
-  const [streams, setStreams]: any = useState([]);
+  const [streams, setStreams]: any = useState({});
+  const [streamOptions, setStreamOptions]: any = useState([]);
 
   useEffect(() => {
     getStreams(datasource.url).then((response: any) => {
-      setStreams([
+      const streams: { [key: string]: any } = {};
+      response.list.forEach((stream: any) => {
+        streams[stream.name] = stream;
+      });
+      setStreams({ ...streams });
+      setStreamOptions([
         ...response.list.map((stream: any) => ({
           label: stream.name,
           value: stream.name,
@@ -40,14 +46,12 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
 
   const streamUpdated = (stream: { label: string; value: string }) => {
     console.log(datasource.instanceSettings);
-    getStreamSchema({ url: datasource.url, stream: stream.value }).then((response: any) => {
-      onChange({
-        ...query,
-        stream: stream.value,
-        streamFields: response.schema,
-      });
-      onRunQuery();
+    onChange({
+      ...query,
+      stream: stream.value,
+      streamFields: streams[stream.value].schema,
     });
+    onRunQuery();
   };
   return (
     <div>
@@ -65,7 +69,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
             width: 200px !important;
             margin: 8px 0px;
           `}
-          options={streams}
+          options={streamOptions}
           value={query.stream}
           onChange={streamUpdated}
         ></Select>

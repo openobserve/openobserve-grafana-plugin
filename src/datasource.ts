@@ -110,14 +110,14 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
         if (expression.length > 0) {
           expression += ' and ';
         }
-        expression += `${action.options.key}="${action.options.value}"`;
+        expression += `${action.options.key}='${action.options.value}'`;
         break;
       }
       case 'ADD_FILTER_OUT': {
         if (expression.length > 0) {
           expression += ' and ';
         }
-        expression += `${action.options.key}!="${action.options.value}"`;
+        expression += `${action.options.key}!='${action.options.value}'`;
         break;
       }
     }
