@@ -19,8 +19,6 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   constructor(instanceSettings: DataSourceInstanceSettings<MyDataSourceOptions>) {
     super(instanceSettings);
     this.url = instanceSettings.url || '';
-    // this.name = instanceSettings.name;
-    console.log(instanceSettings);
     this.instanceSettings = instanceSettings;
   }
 
@@ -137,6 +135,10 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
           sql_mode: 'full',
         },
       };
+
+      if (queryData.sqlMode) {
+        req.query.sql = queryData.query;
+      }
 
       if (!queryData.sqlMode) {
         let whereClause = query;

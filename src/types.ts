@@ -6,7 +6,7 @@ export interface MyQuery extends DataQuery {
   stream?: string;
   startTimeInMicro?: number;
   endTimeInMicro?: number;
-  sqlMode: false;
+  sqlMode: boolean;
   pagination?: {
     rows: number;
   };

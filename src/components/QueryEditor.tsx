@@ -1,17 +1,14 @@
 import React, { MutableRefObject, useEffect, useRef, useState } from 'react';
-import { InlineLabel, QueryField, Select } from '@grafana/ui';
+import { InlineLabel, QueryField, Select, Switch } from '@grafana/ui';
 import { QueryEditorProps } from '@grafana/data';
 import { DataSource } from '../datasource';
 import { MyDataSourceOptions, MyQuery } from '../types';
-import { getStreams, getStreamSchema } from '../streams';
+import { getStreams } from '../streams';
 import { css } from '@emotion/css';
 
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
 
 export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) {
-  const myRef: MutableRefObject<string> = useRef('');
-  const queryValue: string = myRef.current;
-
   const [streams, setStreams]: any = useState({});
   const [streamOptions, setStreamOptions]: any = useState([]);
 
@@ -22,30 +19,54 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
         streams[stream.name] = stream;
       });
       setStreams({ ...streams });
+      onChange({
+        ...query,
+        query: query.query || '',
+        stream: response.list[0].name,
+        streamFields: response.list[0].schema,
+        sqlMode: false,
+      });
       setStreamOptions([
         ...response.list.map((stream: any) => ({
           label: stream.name,
           value: stream.name,
         })),
       ]);
-      onChange({
-        ...query,
-        query: query.query || '',
-        stream: response.list[0].name,
-        streamFields: response.list[0].schema,
-      });
       onRunQuery();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onChangeQuery = (queryText: string) => {
-    onChange({ ...query, query: queryText, queryType: 'logs' });
-    console.log(query);
+  useEffect(() => {
+    if (query.sqlMode !== undefined) {
+      updateQuery();
+    }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.sqlMode]);
+
+  const updateQuery = () => {
+    let newQuery = query.query;
+    if (query.sqlMode) {
+      let whereClause = '';
+      if (newQuery.trim().length) {
+        whereClause = 'WHERE ' + newQuery.trim();
+      }
+      newQuery = `SELECT *  FROM "${query.stream}" ${whereClause}`;
+    } else {
+      newQuery = '';
+    }
+    onChange({
+      ...query,
+      query: newQuery,
+    });
   };
 
-  const streamUpdated = (stream: { label: string; value: string }) => {
-    console.log(datasource.instanceSettings);
+  const onChangeQuery = (queryText: string) => {
+    onChange({ ...query, query: queryText, queryType: 'logs' });
+  };
+
+  const streamUpdated = (stream: any) => {
     onChange({
       ...query,
       stream: stream.value,
@@ -53,6 +74,14 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     });
     onRunQuery();
   };
+
+  const toggleSqlMode = () => {
+    onChange({
+      ...query,
+      sqlMode: !query.sqlMode,
+    });
+  };
+
   return (
     <div>
       <div
@@ -61,9 +90,25 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           align-items: center;
         `}
       >
+        <InlineLabel
+          className={css`
+            width: fit-content;
+          `}
+          transparent={true}
+        >
+          SQL Mode
+        </InlineLabel>
+        <Switch value={!!query.sqlMode} onChange={toggleSqlMode} />
+      </div>
+      <div
+        className={css`
+          display: flex;
+          align-items: center;
+        `}
+      >
         <InlineLabel width={17} tooltip="Select stream to get logs">
           Select Stream
-        </InlineLabel>{' '}
+        </InlineLabel>
         <Select
           className={css`
             width: 200px !important;
@@ -72,7 +117,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           options={streamOptions}
           value={query.stream}
           onChange={streamUpdated}
-        ></Select>
+        />
       </div>
       <QueryField
         query={query.query}
