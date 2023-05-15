@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { InlineLabel, QueryField, Select, Switch } from '@grafana/ui';
+import React, { useEffect, useRef, useState } from 'react';
+import { InlineLabel, Select, Switch } from '@grafana/ui';
 import { QueryEditorProps } from '@grafana/data';
 import { DataSource } from '../datasource';
 import { MyDataSourceOptions, MyQuery } from '../types';
 import { getStreams } from '../services/streams';
 import { getOrganizations } from '../services/organizations';
 import { css } from '@emotion/css';
+import { ZincEditor } from './ZincEditor';
 
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
 
@@ -26,7 +27,6 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
         setupStreams(orgs.data[0].name).then((streams: any) => {
           onChange({
             ...query,
-            query: '',
             stream: streams[0].name,
             organization: orgs.data[0].name,
             streamFields: streams[0].schema,
@@ -95,7 +95,9 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
   };
 
   const onChangeQuery = (queryText: string) => {
-    onChange({ ...query, query: queryText, queryType: 'logs' });
+    if (query.query !== queryText) {
+      onChange({ ...query, query: queryText, queryType: 'logs' });
+    }
   };
 
   const streamUpdated = (stream: any) => {
@@ -141,51 +143,11 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           align-items: center;
         `}
       >
-        <InlineLabel
-          className={css`
-            width: fit-content;
-          `}
-          transparent={true}
-        >
-          SQL Mode
-        </InlineLabel>
-        <Switch value={!!query.sqlMode} onChange={toggleSqlMode} />
-      </div>
-      <div
-        className={css`
-          display: flex;
-          align-items: center;
-        `}
-      >
         <div
           className={css`
             display: flex;
             align-items: center;
             padding-right: 1rem;
-          `}
-        >
-          <InlineLabel
-            className={css`
-              width: fit-content;
-            `}
-            transparent
-          >
-            Select Stream
-          </InlineLabel>
-          <Select
-            className={css`
-              width: 200px !important;
-              margin: 8px 0px;
-            `}
-            options={streamOptions}
-            value={query.stream}
-            onChange={streamUpdated}
-          />
-        </div>
-        <div
-          className={css`
-            display: flex;
-            align-items: center;
           `}
         >
           <InlineLabel
@@ -206,16 +168,55 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
             onChange={orgUpdated}
           />
         </div>
+        <div
+          className={css`
+            display: flex;
+            align-items: center;
+          `}
+        >
+          <InlineLabel
+            className={css`
+              width: fit-content;
+            `}
+            transparent
+          >
+            Select Stream
+          </InlineLabel>
+          <Select
+            className={css`
+              width: 200px !important;
+              margin: 8px 0px;
+            `}
+            options={streamOptions}
+            value={query.stream}
+            onChange={streamUpdated}
+          />
+        </div>
       </div>
-      <QueryField
+      <div
+        className={css`
+          display: flex;
+          align-items: center;
+          padding-bottom: 0.5rem;
+        `}
+      >
+        <InlineLabel
+          className={css`
+            width: fit-content;
+          `}
+          transparent={true}
+        >
+          SQL Mode
+        </InlineLabel>
+        <Switch value={!!query.sqlMode} onChange={toggleSqlMode} />
+      </div>
+      <ZincEditor
         query={query.query}
-        // By default QueryField calls onChange if onBlur is not defined, this will trigger a rerender
-        // And slate will claim the focus, making it impossible to leave the field.
-        onBlur={() => {}}
-        onChange={onChangeQuery}
+        onChange={() => onChangeQuery}
         placeholder="Enter a zinc query"
-        portalOrigin="zincObserve"
-      />
+        fields={query.streamFields || []}
+        runQuery={onRunQuery}
+      ></ZincEditor>
     </div>
   );
 }
