@@ -11,7 +11,7 @@ import {
 import { getBackendSrv } from '@grafana/runtime';
 
 import { MyQuery, MyDataSourceOptions, TimeRange } from './types';
-import { b64EncodeUnicode } from 'utils/zincutils';
+import { b64EncodeUnicode, logsErrorMessage } from 'utils/zincutils';
 export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   instanceSettings?: DataSourceInstanceSettings<MyDataSourceOptions>;
   url: string;
@@ -36,7 +36,7 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     const promises = options.targets.map((target) => {
       // Your code goes here.
       const reqData = this.buildQuery(target, timestamps);
-      return this.doRequest(reqData)
+      return this.doRequest(target, reqData)
         .then((response) => {
           const frame = new MutableDataFrame({
             refId: target.refId,
@@ -54,7 +54,7 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
               { name: 'kubernetes_host', type: FieldType.string },
             ],
           });
-          response.data.hits.forEach((point: any) => {
+          response.hits.forEach((point: any) => {
             frame.appendRow([
               point.time,
               point.log,
@@ -68,7 +68,20 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
           });
           return frame;
         })
-        .catch((err) => console.log(err));
+        .catch((err) => {
+          let error = '';
+          if (err.response !== undefined) {
+            error = err.response.data.error;
+          } else {
+            error = err.message;
+          }
+
+          const customMessage = logsErrorMessage(err.response.data.code);
+          if (customMessage) {
+            error = customMessage;
+          }
+          throw new Error(error);
+        });
     });
 
     return Promise.all(promises).then((data) => {
@@ -76,16 +89,9 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     });
   }
 
-  async doRequest(data: any) {
-    const headers: any = {};
-    headers['Content-Type'] = 'application/x-ndjson';
-    return getBackendSrv().datasourceRequest({
-      method: 'POST',
-      url: this.url + '/_search',
-      params: {
-        type: 'logs',
-      },
-      data,
+  doRequest(target: any, data: any) {
+    return getBackendSrv().post(this.url + `/${target.organization}/_search?type=logs`, data, {
+      showErrorAlert: false,
     });
   }
 
