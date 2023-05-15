@@ -1,4 +1,4 @@
-import { DataQuery, DataSourceApi, DataSourceJsonData } from '@grafana/data';
+import { DataQuery, DataSourceJsonData } from '@grafana/data';
 
 export interface MyQuery extends DataQuery {
   query: string;
@@ -6,7 +6,7 @@ export interface MyQuery extends DataQuery {
   stream?: string;
   startTimeInMicro?: number;
   endTimeInMicro?: number;
-  sqlMode: false;
+  sqlMode: boolean;
   pagination?: {
     rows: number;
   };
