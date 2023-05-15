@@ -3,7 +3,8 @@ import { InlineLabel, QueryField, Select, Switch } from '@grafana/ui';
 import { QueryEditorProps } from '@grafana/data';
 import { DataSource } from '../datasource';
 import { MyDataSourceOptions, MyQuery } from '../types';
-import { getStreams } from '../streams';
+import { getStreams } from '../services/streams';
+import { getOrganizations } from '../services/organizations';
 import { css } from '@emotion/css';
 
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
@@ -11,39 +12,70 @@ type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
 export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) {
   const [streams, setStreams]: any = useState({});
   const [streamOptions, setStreamOptions]: any = useState([]);
+  const [orgOptions, setOrgOptions]: any = useState([]);
 
   useEffect(() => {
-    getStreams(datasource.url).then((response: any) => {
-      const streams: { [key: string]: any } = {};
-      response.list.forEach((stream: any) => {
-        streams[stream.name] = stream;
-      });
-      setStreams({ ...streams });
-      onChange({
-        ...query,
-        query: query.query || '',
-        stream: response.list[0].name,
-        streamFields: response.list[0].schema,
-        sqlMode: false,
-      });
-      setStreamOptions([
-        ...response.list.map((stream: any) => ({
-          label: stream.name,
-          value: stream.name,
-        })),
-      ]);
-      onRunQuery();
-    });
+    getOrganizations({ url: datasource.url, page_num: 0, page_size: 1000, sort_by: 'id' })
+      .then((orgs: any) => {
+        setOrgOptions([
+          ...orgs.data.map((org: any) => ({
+            label: org.name,
+            value: org.name,
+          })),
+        ]);
+        setupStreams(orgs.data[0].name).then((streams: any) => {
+          onChange({
+            ...query,
+            query: '',
+            stream: streams[0].name,
+            organization: orgs.data[0].name,
+            streamFields: streams[0].schema,
+            sqlMode: false,
+          });
+          setStreamOptions([
+            ...Object.values(streams).map((stream: any) => ({
+              label: stream.name,
+              value: stream.name,
+            })),
+          ]);
+          onRunQuery();
+        });
+      })
+      .catch((err) => console.log(err));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (query.sqlMode !== undefined) {
+    if (query.sqlMode !== undefined && query.stream) {
       updateQuery();
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.sqlMode]);
+  }, [query.sqlMode, query.organization, query.stream]);
+
+  useEffect(() => {
+    if (query.stream && query.organization) {
+      updateQuery();
+      onRunQuery();
+    }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.organization, query.stream]);
+
+  const setupStreams = (orgName: string) => {
+    return new Promise((resolve) => {
+      getStreams(datasource.url, orgName)
+        .then((response: any) => {
+          const streams: { [key: string]: any } = {};
+          response.list.forEach((stream: any) => {
+            streams[stream.name] = stream;
+          });
+          setStreams({ ...streams });
+          resolve(response.list);
+        })
+        .catch((err) => console.log(err));
+    });
+  };
 
   const updateQuery = () => {
     let newQuery = query.query;
@@ -69,10 +101,29 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
   const streamUpdated = (stream: any) => {
     onChange({
       ...query,
+      query: '',
       stream: stream.value,
       streamFields: streams[stream.value].schema,
     });
     onRunQuery();
+  };
+
+  const orgUpdated = (organization: any) => {
+    setupStreams(organization.value).then((streams: any) => {
+      onChange({
+        ...query,
+        query: '',
+        stream: streams[0].name,
+        organization: organization.value,
+        streamFields: streams[0].schema,
+      });
+      setStreamOptions([
+        ...streams.map((stream: any) => ({
+          label: stream.name,
+          value: stream.name,
+        })),
+      ]);
+    });
   };
 
   const toggleSqlMode = () => {
@@ -106,23 +157,55 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           align-items: center;
         `}
       >
-        <InlineLabel
+        <div
           className={css`
-            width: fit-content;
+            display: flex;
+            align-items: center;
+            padding-right: 1rem;
           `}
-          transparent
         >
-          Select Stream
-        </InlineLabel>
-        <Select
+          <InlineLabel
+            className={css`
+              width: fit-content;
+            `}
+            transparent
+          >
+            Select Stream
+          </InlineLabel>
+          <Select
+            className={css`
+              width: 200px !important;
+              margin: 8px 0px;
+            `}
+            options={streamOptions}
+            value={query.stream}
+            onChange={streamUpdated}
+          />
+        </div>
+        <div
           className={css`
-            width: 200px !important;
-            margin: 8px 0px;
+            display: flex;
+            align-items: center;
           `}
-          options={streamOptions}
-          value={query.stream}
-          onChange={streamUpdated}
-        />
+        >
+          <InlineLabel
+            className={css`
+              width: fit-content;
+            `}
+            transparent
+          >
+            Select Organization
+          </InlineLabel>
+          <Select
+            className={css`
+              width: 200px !important;
+              margin: 8px 0px;
+            `}
+            options={orgOptions}
+            value={query.organization}
+            onChange={orgUpdated}
+          />
+        </div>
       </div>
       <QueryField
         query={query.query}

@@ -1,13 +1,11 @@
 import { getBackendSrv } from '@grafana/runtime';
 
-export function getStreams(url: string) {
-  const headers: any = {};
-  headers['Content-Type'] = 'application/x-ndjson';
+export function getStreams(url: string, orgName: string) {
   return new Promise((resolve, reject) =>
     getBackendSrv()
       .datasourceRequest({
         method: 'GET',
-        url: url + '/streams',
+        url: url + `/${orgName}/streams`,
         params: {
           type: 'logs',
           fetchSchema: true,
@@ -23,8 +21,6 @@ export function getStreams(url: string) {
 }
 
 export function getStreamSchema({ url, stream }: { url: string; stream: string }) {
-  const headers: any = {};
-  headers['Content-Type'] = 'application/x-ndjson';
   return new Promise((resolve, reject) =>
     getBackendSrv()
       .datasourceRequest({
