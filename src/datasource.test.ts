@@ -1,4 +1,4 @@
-import { MyDataSourceOptions, MyQuery } from 'types';
+import { MyDataSourceOptions } from 'types';
 import { DataSource } from './datasource';
 import { DataSourceInstanceSettings, PluginSignatureStatus, PluginType } from '@grafana/data';
 
@@ -94,16 +94,10 @@ describe('DataSource', () => {
       },
       includes: undefined,
       category: '',
-      preload: false,
       backend: false,
-      routes: null,
-      skipDataQuery: false,
-      autoEnabled: false,
       annotations: false,
       metrics: true,
       alerting: false,
-      explore: false,
-      tables: false,
       logs: true,
       tracing: false,
       streaming: false,
@@ -114,16 +108,10 @@ describe('DataSource', () => {
     url: '/api/datasources/proxy/uid/fd886f75-fdd9-444b-8868-be92687ff464',
     isDefault: false,
     access: 'proxy',
-    preload: false,
-    module: 'plugins/zinc-grafanatest-datasource/module',
     jsonData: {
       url: '/api/datasources/proxy/uid/fd886f75-fdd9-444b-8868-be92687ff464',
     },
     readOnly: false,
-    cachingConfig: {
-      enabled: false,
-      TTLMs: 0,
-    },
   };
 
   let ds: DataSource;
