@@ -10,7 +10,7 @@ import { ZincEditor } from './ZincEditor';
 
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
 
-export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) {
+export const QueryEditor = ({ query, onChange, onRunQuery, datasource }: Props) => {
   const [streams, setStreams]: any = useState({});
   const [streamOptions, setStreamOptions]: any = useState([]);
   const [orgOptions, setOrgOptions]: any = useState([]);
@@ -151,6 +151,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           `}
         >
           <InlineLabel
+            data-testid="query-editor-select-organization-label"
             className={css`
               width: fit-content;
             `}
@@ -159,6 +160,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
             Select Organization
           </InlineLabel>
           <Select
+            id="query-editor-select-organization-input"
             className={css`
               width: 200px !important;
               margin: 8px 0px;
@@ -175,6 +177,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           `}
         >
           <InlineLabel
+            data-testid="query-editor-select-stream-label"
             className={css`
               width: fit-content;
             `}
@@ -183,6 +186,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
             Select Stream
           </InlineLabel>
           <Select
+            id="query-editor-select-stream-input"
             className={css`
               width: 200px !important;
               margin: 8px 0px;
@@ -201,6 +205,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
         `}
       >
         <InlineLabel
+          data-testid="query-editor-sql-mode-label"
           className={css`
             width: fit-content;
           `}
@@ -208,7 +213,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
         >
           SQL Mode
         </InlineLabel>
-        <Switch value={!!query.sqlMode} onChange={toggleSqlMode} />
+        <Switch data-testid="query-editor-sql-mode-switch" value={!!query.sqlMode} onChange={toggleSqlMode} />
       </div>
       <ZincEditor
         query={query.query}
@@ -219,4 +224,4 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
       ></ZincEditor>
     </div>
   );
-}
+};
