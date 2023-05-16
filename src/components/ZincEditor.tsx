@@ -1,5 +1,4 @@
 import React, { useRef } from 'react';
-import * as monaco from 'monaco-editor';
 import { css } from '@emotion/css';
 import { ReactMonacoEditor, monacoTypes } from '@grafana/ui';
 
@@ -12,7 +11,7 @@ interface Props {
   mode?: boolean;
 }
 
-export function ZincEditor({ query, onChange, placeholder, fields, runQuery }: Props) {
+export const ZincEditor = ({ query, onChange, placeholder, fields, runQuery }: Props): any => {
   const reactMonacoEditorRef = useRef(null);
   const options: monacoTypes.editor.IStandaloneEditorConstructionOptions = {
     wordWrap: 'on',
@@ -37,7 +36,7 @@ export function ZincEditor({ query, onChange, placeholder, fields, runQuery }: P
     minimap: { enabled: false },
   };
 
-  const createDependencyProposals = (range: any) => {
+  const createDependencyProposals = (range: any, monaco: any) => {
     const keywords = [
       {
         label: 'and',
@@ -187,7 +186,7 @@ export function ZincEditor({ query, onChange, placeholder, fields, runQuery }: P
 
         let arr = textUntilPosition.trim().split(' ');
         let filteredSuggestions = [];
-        filteredSuggestions = createDependencyProposals(range);
+        filteredSuggestions = createDependencyProposals(range, monaco);
         filteredSuggestions = filteredSuggestions.filter((item) => {
           return item.label.toLowerCase().includes(word.word.toLowerCase());
         });
@@ -246,4 +245,4 @@ export function ZincEditor({ query, onChange, placeholder, fields, runQuery }: P
       ></ReactMonacoEditor>
     </>
   );
-}
+};
