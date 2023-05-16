@@ -168,7 +168,7 @@ export function ZincEditor({ query, onChange, placeholder, fields, runQuery }: P
   const onEditorMount = (editor: any, monaco: any) => {
     console.log(reactMonacoEditorRef.current);
     monaco.languages.registerCompletionItemProvider('sql', {
-      provideCompletionItems: function (model, position) {
+      provideCompletionItems: function (model: any, position: any) {
         // find out if we are completing a property in the 'dependencies' object.
         let textUntilPosition = model.getValueInRange({
           startLineNumber: 1,

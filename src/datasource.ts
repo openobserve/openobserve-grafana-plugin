@@ -31,42 +31,47 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     };
   }
 
+  buildLogsDataFrame(logs: any[], target: MyQuery) {
+    const fieldsMapping: { [key: string]: FieldType } = {
+      Utf8: FieldType.string,
+      Int64: FieldType.number,
+      timestamp: FieldType.time,
+    };
+
+    const fields = [
+      { name: 'Time', type: FieldType.time },
+      { name: 'Content', type: FieldType.string },
+    ];
+
+    target.streamFields.forEach((field: any) => {
+      fields.push({
+        name: field.name,
+        type: fieldsMapping[field.type],
+      });
+    });
+
+    const frame = new MutableDataFrame({
+      refId: target.refId,
+      meta: {
+        preferredVisualisationType: 'logs',
+      },
+      fields,
+    });
+
+    logs.forEach((log: any) => {
+      frame.add({ ...log, Content: JSON.stringify(log) });
+    });
+
+    return frame;
+  }
+
   async query(options: DataQueryRequest<MyQuery>): Promise<DataQueryResponse> {
     const timestamps = this.getConsumableTime(options.range);
     const promises = options.targets.map((target) => {
-      // Your code goes here.
       const reqData = this.buildQuery(target, timestamps);
       return this.doRequest(target, reqData)
         .then((response) => {
-          const frame = new MutableDataFrame({
-            refId: target.refId,
-            meta: {
-              preferredVisualisationType: 'logs',
-            },
-            fields: [
-              { name: 'Time', type: FieldType.time },
-              { name: 'log', type: FieldType.string },
-              { name: 'kubernetes_container_hash', type: FieldType.string },
-              { name: 'kubernetes_container_image', type: FieldType.string },
-              { name: 'kubernetes_container_name', type: FieldType.string },
-              { name: 'kubernetes_docker_id', type: FieldType.string },
-              { name: 'kubernetes_labels_app_kubernetes_io_instance', type: FieldType.string },
-              { name: 'kubernetes_host', type: FieldType.string },
-            ],
-          });
-          response.hits.forEach((point: any) => {
-            frame.appendRow([
-              point.time,
-              point.log,
-              point.kubernetes_container_hash,
-              point.kubernetes_container_image,
-              point.kubernetes_container_name,
-              point.kubernetes_docker_id,
-              point.kubernetes_labels_app_kubernetes_io_instance,
-              point.kubernetes_host,
-            ]);
-          });
-          return frame;
+          return this.buildLogsDataFrame(response.hits, target);
         })
         .catch((err) => {
           let error = '';
