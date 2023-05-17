@@ -3,7 +3,7 @@ import { DataQuery, DataSourceJsonData } from '@grafana/data';
 export interface MyQuery extends DataQuery {
   query: string;
   constant: number;
-  stream?: string;
+  stream: string;
   startTimeInMicro?: number;
   endTimeInMicro?: number;
   sqlMode: boolean;

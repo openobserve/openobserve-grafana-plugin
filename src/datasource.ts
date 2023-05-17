@@ -16,11 +16,13 @@ import { getOrganizations } from 'services/organizations';
 export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   instanceSettings?: DataSourceInstanceSettings<MyDataSourceOptions>;
   url: string;
+  streamFields: any[];
 
   constructor(instanceSettings: DataSourceInstanceSettings<MyDataSourceOptions>) {
     super(instanceSettings);
     this.url = instanceSettings.url || '';
     this.instanceSettings = instanceSettings;
+    this.streamFields = [];
   }
 
   getConsumableTime(range: any) {
@@ -44,7 +46,7 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
       { name: 'Content', type: FieldType.string },
     ];
 
-    target.streamFields.forEach((field: any) => {
+    this.streamFields.forEach((field: any) => {
       fields.push({
         name: field.name,
         type: fieldsMapping[field.type],
@@ -178,7 +180,7 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
             .replace(/> =(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' >=');
 
           const parsedSQL = whereClause.split(' ');
-          queryData.streamFields.forEach((field: any) => {
+          this.streamFields.forEach((field: any) => {
             parsedSQL.forEach((node: any, index: any) => {
               if (node === field.name) {
                 node = node.replaceAll('"', '');
@@ -204,5 +206,8 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     } catch (e) {
       console.log('error in building query:', e);
     }
+  }
+  updateStreamFields(streamFields: any[]) {
+    this.streamFields = [...streamFields];
   }
 }
