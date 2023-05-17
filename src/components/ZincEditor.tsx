@@ -8,7 +8,6 @@ interface Props {
   placeholder: string;
   fields: any[];
   runQuery: () => void;
-  mode?: boolean;
 }
 
 export const ZincEditor = ({ query, onChange, placeholder, fields, runQuery }: Props): any => {
@@ -234,6 +233,7 @@ export const ZincEditor = ({ query, onChange, placeholder, fields, runQuery }: P
   return (
     <>
       <ReactMonacoEditor
+        data-testid="zinc-editor-react-monaco-editor"
         options={options}
         onMount={onEditorMount}
         value={query}
