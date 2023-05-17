@@ -140,8 +140,8 @@ describe('DataSource', () => {
       const result = await ds.testDatasource();
 
       expect(result).toEqual({
-        status: 'success',
-        message: 'Success saved',
+        status: 'error',
+        message: 'Unable to connect ZincObserve . Verify that ZincObserve is correctly configured',
       });
     });
   });
