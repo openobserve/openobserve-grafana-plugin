@@ -12,14 +12,17 @@ import { getBackendSrv } from '@grafana/runtime';
 
 import { MyQuery, MyDataSourceOptions, TimeRange } from './types';
 import { b64EncodeUnicode, logsErrorMessage } from 'utils/zincutils';
+import { getOrganizations } from 'services/organizations';
 export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   instanceSettings?: DataSourceInstanceSettings<MyDataSourceOptions>;
   url: string;
+  streamFields: any[];
 
   constructor(instanceSettings: DataSourceInstanceSettings<MyDataSourceOptions>) {
     super(instanceSettings);
     this.url = instanceSettings.url || '';
     this.instanceSettings = instanceSettings;
+    this.streamFields = [];
   }
 
   getConsumableTime(range: any) {
@@ -43,7 +46,7 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
       { name: 'Content', type: FieldType.string },
     ];
 
-    target.streamFields.forEach((field: any) => {
+    this.streamFields.forEach((field: any) => {
       fields.push({
         name: field.name,
         type: fieldsMapping[field.type],
@@ -95,17 +98,27 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   }
 
   doRequest(target: any, data: any) {
-    return getBackendSrv().post(this.url + `/${target.organization}/_search?type=logs`, data, {
+    return getBackendSrv().post(this.url + `/api/${target.organization}/_search?type=logs`, data, {
       showErrorAlert: false,
     });
   }
 
   async testDatasource() {
-    // Implement a health check for your data source.
-    return {
-      status: 'success',
-      message: 'Success saved',
-    };
+    return getOrganizations({ url: this.url })
+      .then((res) => {
+        return {
+          status: 'success',
+          message: 'Data source successfully connected.',
+        };
+      })
+      .catch((error) => {
+        const info: string = error?.data?.message ?? '';
+        const infoInParentheses = info !== '' ? ` (${info})` : '';
+        return {
+          status: 'error',
+          message: `Unable to connect ZincObserve ${infoInParentheses}. Verify that ZincObserve is correctly configured`,
+        };
+      });
   }
 
   modifyQuery(query: MyQuery, action: QueryFixAction): any {
@@ -167,7 +180,7 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
             .replace(/> =(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' >=');
 
           const parsedSQL = whereClause.split(' ');
-          queryData.streamFields.forEach((field: any) => {
+          this.streamFields.forEach((field: any) => {
             parsedSQL.forEach((node: any, index: any) => {
               if (node === field.name) {
                 node = node.replaceAll('"', '');
@@ -193,5 +206,8 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     } catch (e) {
       console.log('error in building query:', e);
     }
+  }
+  updateStreamFields(streamFields: any[]) {
+    this.streamFields = [...streamFields];
   }
 }

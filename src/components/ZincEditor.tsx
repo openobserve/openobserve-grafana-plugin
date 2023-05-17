@@ -1,19 +1,18 @@
-import React, { useRef } from 'react';
-import * as monaco from 'monaco-editor';
+import React from 'react';
 import { css } from '@emotion/css';
 import { ReactMonacoEditor, monacoTypes } from '@grafana/ui';
 
 interface Props {
   query: string;
-  onChange: (queryText: string) => void;
+  onChange: ({ value, sqlMode }: { value: string; sqlMode: boolean }) => void;
   placeholder: string;
-  fields: any[];
+  getFields: any;
   runQuery: () => void;
-  mode?: boolean;
+  isSQLMode: boolean;
+  id: string;
 }
 
-export function ZincEditor({ query, onChange, placeholder, fields, runQuery }: Props) {
-  const reactMonacoEditorRef = useRef(null);
+export const ZincEditor = ({ query, onChange, getFields, runQuery, isSQLMode, id }: Props): any => {
   const options: monacoTypes.editor.IStandaloneEditorConstructionOptions = {
     wordWrap: 'on',
     lineNumbers: 'on',
@@ -37,7 +36,7 @@ export function ZincEditor({ query, onChange, placeholder, fields, runQuery }: P
     minimap: { enabled: false },
   };
 
-  const createDependencyProposals = (range: any) => {
+  const createDependencyProposals = (range: any, monaco: any) => {
     const keywords = [
       {
         label: 'and',
@@ -148,7 +147,7 @@ export function ZincEditor({ query, onChange, placeholder, fields, runQuery }: P
       },
     ];
 
-    fields.forEach((field: any) => {
+    getFields.forEach((field: any) => {
       if (field.name === '_timestamp') {
         return;
       }
@@ -166,9 +165,13 @@ export function ZincEditor({ query, onChange, placeholder, fields, runQuery }: P
   };
 
   const onEditorMount = (editor: any, monaco: any) => {
-    console.log(reactMonacoEditorRef.current);
     monaco.languages.registerCompletionItemProvider('sql', {
       provideCompletionItems: function (model: any, position: any) {
+        if (editor.getModel()?.id !== model.id) {
+          return {
+            suggestions: [],
+          };
+        }
         // find out if we are completing a property in the 'dependencies' object.
         let textUntilPosition = model.getValueInRange({
           startLineNumber: 1,
@@ -187,7 +190,7 @@ export function ZincEditor({ query, onChange, placeholder, fields, runQuery }: P
 
         let arr = textUntilPosition.trim().split(' ');
         let filteredSuggestions = [];
-        filteredSuggestions = createDependencyProposals(range);
+        filteredSuggestions = createDependencyProposals(range, monaco);
         filteredSuggestions = filteredSuggestions.filter((item) => {
           return item.label.toLowerCase().includes(word.word.toLowerCase());
         });
@@ -214,10 +217,6 @@ export function ZincEditor({ query, onChange, placeholder, fields, runQuery }: P
       },
     });
 
-    editor.onDidChangeModelContent((e: any) => {
-      onChange(editor.getValue());
-    });
-
     editor.createContextKey('ctrlenter', true);
     editor.addCommand(
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
@@ -232,18 +231,27 @@ export function ZincEditor({ query, onChange, placeholder, fields, runQuery }: P
     });
   };
 
+  const onChangeQuery = (value: any) => {
+    onChange({
+      value,
+      sqlMode: isSQLMode,
+    });
+  };
+
   return (
-    <>
-      <ReactMonacoEditor
-        options={options}
-        onMount={onEditorMount}
-        value={query}
-        language="sql"
-        className={css`
-          height: 100px;
-          max-height: 200px;
-        `}
-      ></ReactMonacoEditor>
-    </>
+    <ReactMonacoEditor
+      data-testid="zinc-editor-react-monaco-editor"
+      options={options}
+      onMount={onEditorMount}
+      value={query}
+      language="sql"
+      className={css`
+        height: 100px;
+        max-height: 200px;
+      `}
+      onChange={onChangeQuery}
+      saveViewState={false}
+      keepCurrentModel={false}
+    ></ReactMonacoEditor>
   );
-}
+};

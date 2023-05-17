@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { InlineLabel, Select, Switch } from '@grafana/ui';
 import { QueryEditorProps } from '@grafana/data';
 import { DataSource } from '../datasource';
@@ -7,11 +7,12 @@ import { getStreams } from '../services/streams';
 import { getOrganizations } from '../services/organizations';
 import { css } from '@emotion/css';
 import { ZincEditor } from './ZincEditor';
+import { cloneDeep } from 'lodash';
 
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
 
-export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) {
-  const [streams, setStreams]: any = useState({});
+export const QueryEditor = ({ query, onChange, onRunQuery, datasource }: Props) => {
+  const [streamDetails, setStreamDetails]: any = useState({});
   const [streamOptions, setStreamOptions]: any = useState([]);
   const [orgOptions, setOrgOptions]: any = useState([]);
 
@@ -29,9 +30,9 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
             ...query,
             stream: streams[0].name,
             organization: orgs.data[0].name,
-            streamFields: streams[0].schema,
             sqlMode: false,
           });
+          datasource.updateStreamFields(streams[0].schema);
           setStreamOptions([
             ...Object.values(streams).map((stream: any) => ({
               label: stream.name,
@@ -70,7 +71,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           response.list.forEach((stream: any) => {
             streams[stream.name] = stream;
           });
-          setStreams({ ...streams });
+          setStreamDetails(cloneDeep(streams));
           resolve(response.list);
         })
         .catch((err) => console.log(err));
@@ -91,13 +92,12 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     onChange({
       ...query,
       query: newQuery,
+      sqlMode: query.sqlMode,
     });
   };
 
-  const onChangeQuery = (queryText: string) => {
-    if (query.query !== queryText) {
-      onChange({ ...query, query: queryText, queryType: 'logs' });
-    }
+  const onChangeQuery = ({ value, sqlMode }: { value: string; sqlMode: boolean }) => {
+    onChange({ ...query, query: value, sqlMode: sqlMode });
   };
 
   const streamUpdated = (stream: any) => {
@@ -105,9 +105,8 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
       ...query,
       query: '',
       stream: stream.value,
-      streamFields: streams[stream.value].schema,
     });
-    onRunQuery();
+    datasource.updateStreamFields(cloneDeep(streamDetails[stream.value].schema));
   };
 
   const orgUpdated = (organization: any) => {
@@ -117,8 +116,8 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
         query: '',
         stream: streams[0].name,
         organization: organization.value,
-        streamFields: streams[0].schema,
       });
+      datasource.updateStreamFields(cloneDeep(streamDetails[streams[0].name].schema));
       setStreamOptions([
         ...streams.map((stream: any) => ({
           label: stream.name,
@@ -135,6 +134,10 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     });
   };
 
+  const generateEditorId = useMemo(
+    () => query.stream + query.organization + (streamDetails[query.stream]?.schema || []).length,
+    [query.stream, query.organization, streamDetails]
+  );
   return (
     <div>
       <div
@@ -151,6 +154,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           `}
         >
           <InlineLabel
+            data-testid="query-editor-select-organization-label"
             className={css`
               width: fit-content;
             `}
@@ -159,6 +163,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
             Select Organization
           </InlineLabel>
           <Select
+            id="query-editor-select-organization-input"
             className={css`
               width: 200px !important;
               margin: 8px 0px;
@@ -175,6 +180,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           `}
         >
           <InlineLabel
+            data-testid="query-editor-select-stream-label"
             className={css`
               width: fit-content;
             `}
@@ -183,6 +189,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
             Select Stream
           </InlineLabel>
           <Select
+            id="query-editor-select-stream-input"
             className={css`
               width: 200px !important;
               margin: 8px 0px;
@@ -201,6 +208,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
         `}
       >
         <InlineLabel
+          data-testid="query-editor-sql-mode-label"
           className={css`
             width: fit-content;
           `}
@@ -208,15 +216,20 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
         >
           SQL Mode
         </InlineLabel>
-        <Switch value={!!query.sqlMode} onChange={toggleSqlMode} />
+        <Switch data-testid="query-editor-sql-mode-switch" value={!!query.sqlMode} onChange={toggleSqlMode} />
       </div>
-      <ZincEditor
-        query={query.query}
-        onChange={() => onChangeQuery}
-        placeholder="Enter a zinc query"
-        fields={query.streamFields || []}
-        runQuery={onRunQuery}
-      ></ZincEditor>
+      {query.stream && (
+        <ZincEditor
+          key={generateEditorId}
+          query={query.query}
+          onChange={onChangeQuery}
+          placeholder="Enter a zinc query"
+          getFields={streamDetails[query.stream]?.schema || []}
+          isSQLMode={query.sqlMode}
+          runQuery={onRunQuery}
+          id={generateEditorId}
+        />
+      )}
     </div>
   );
-}
+};

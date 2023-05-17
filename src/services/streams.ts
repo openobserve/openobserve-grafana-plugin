@@ -3,16 +3,9 @@ import { getBackendSrv } from '@grafana/runtime';
 export function getStreams(url: string, orgName: string) {
   return new Promise((resolve, reject) =>
     getBackendSrv()
-      .datasourceRequest({
-        method: 'GET',
-        url: url + `/${orgName}/streams`,
-        params: {
-          type: 'logs',
-          fetchSchema: true,
-        },
-      })
+      .get(url + `/api/${orgName}/streams?type=logs&fetchSchema=true`)
       .then((response) => {
-        resolve(response.data);
+        resolve(response);
       })
       .catch((err) => {
         reject(err);
@@ -23,15 +16,9 @@ export function getStreams(url: string, orgName: string) {
 export function getStreamSchema({ url, stream }: { url: string; stream: string }) {
   return new Promise((resolve, reject) =>
     getBackendSrv()
-      .datasourceRequest({
-        method: 'GET',
-        url: url + `/${stream}/schema`,
-        params: {
-          type: 'logs',
-        },
-      })
+      .get(url + `/api/${stream}/schema?type=logs`)
       .then((response) => {
-        resolve(response.data);
+        resolve(response);
       })
       .catch((err) => {
         reject(err);
