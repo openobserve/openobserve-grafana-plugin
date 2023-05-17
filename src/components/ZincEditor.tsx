@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { css } from '@emotion/css';
 import { ReactMonacoEditor, monacoTypes } from '@grafana/ui';
 
@@ -11,7 +11,6 @@ interface Props {
 }
 
 export const ZincEditor = ({ query, onChange, placeholder, fields, runQuery }: Props): any => {
-  const reactMonacoEditorRef = useRef(null);
   const options: monacoTypes.editor.IStandaloneEditorConstructionOptions = {
     wordWrap: 'on',
     lineNumbers: 'on',
