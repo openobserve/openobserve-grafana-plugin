@@ -12,6 +12,7 @@ import { getBackendSrv } from '@grafana/runtime';
 
 import { MyQuery, MyDataSourceOptions, TimeRange } from './types';
 import { b64EncodeUnicode, logsErrorMessage } from 'utils/zincutils';
+import { getOrganizations } from 'services/organizations';
 export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   instanceSettings?: DataSourceInstanceSettings<MyDataSourceOptions>;
   url: string;
@@ -95,17 +96,27 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   }
 
   doRequest(target: any, data: any) {
-    return getBackendSrv().post(this.url + `/${target.organization}/_search?type=logs`, data, {
+    return getBackendSrv().post(this.url + `/api/${target.organization}/_search?type=logs`, data, {
       showErrorAlert: false,
     });
   }
 
   async testDatasource() {
-    // Implement a health check for your data source.
-    return {
-      status: 'success',
-      message: 'Success saved',
-    };
+    return getOrganizations({ url: this.url })
+      .then((res) => {
+        return {
+          status: 'success',
+          message: 'Data source successfully connected.',
+        };
+      })
+      .catch((error) => {
+        const info: string = error?.data?.message ?? '';
+        const infoInParentheses = info !== '' ? ` (${info})` : '';
+        return {
+          status: 'error',
+          message: `Unable to connect ZincObserve ${infoInParentheses}. Verify that ZincObserve is correctly configured`,
+        };
+      });
   }
 
   modifyQuery(query: MyQuery, action: QueryFixAction): any {
