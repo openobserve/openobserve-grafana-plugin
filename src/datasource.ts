@@ -6,14 +6,26 @@ import {
   MutableDataFrame,
   FieldType,
   QueryFixAction,
+  DataSourceWithSupplementaryQueriesSupport,
+  SupplementaryQueryType,
+  LogLevel,
 } from '@grafana/data';
-
+import { Observable } from 'rxjs';
 import { getBackendSrv } from '@grafana/runtime';
+import { queryLogsVolume } from './LogsModel';
 
 import { MyQuery, MyDataSourceOptions, TimeRange } from './types';
-import { b64EncodeUnicode, logsErrorMessage } from 'utils/zincutils';
+import { b64EncodeUnicode, convertTimeToMs, logsErrorMessage } from 'utils/zincutils';
 import { getOrganizations } from 'services/organizations';
-export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
+import { cloneDeep } from 'lodash';
+
+export const REF_ID_STARTER_LOG_VOLUME = 'log-volume-';
+export const REF_ID_STARTER_LOG_SAMPLE = 'log-sample-';
+
+export class DataSource
+  extends DataSourceApi<MyQuery, MyDataSourceOptions>
+  implements DataSourceWithSupplementaryQueriesSupport<MyQuery>
+{
   instanceSettings?: DataSourceInstanceSettings<MyDataSourceOptions>;
   url: string;
   streamFields: any[];
@@ -34,49 +46,93 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     };
   }
 
-  buildLogsDataFrame(logs: any[], target: MyQuery) {
+  buildDataFrame(data: any, target: MyQuery) {
     const fieldsMapping: { [key: string]: FieldType } = {
       Utf8: FieldType.string,
       Int64: FieldType.number,
       timestamp: FieldType.time,
     };
 
-    const fields = [
-      { name: 'Time', type: FieldType.time },
-      { name: 'Content', type: FieldType.string },
-    ];
-
-    this.streamFields.forEach((field: any) => {
-      fields.push({
-        name: field.name,
-        type: fieldsMapping[field.type],
-      });
-    });
-
-    const frame = new MutableDataFrame({
+    const logsData = new MutableDataFrame({
       refId: target.refId,
       meta: {
         preferredVisualisationType: 'logs',
       },
-      fields,
+      fields: [],
     });
 
-    logs.forEach((log: any) => {
-      frame.add({ ...log, Content: JSON.stringify(log) });
+    const graphData = new MutableDataFrame({
+      refId: target.refId,
+      meta: {
+        preferredVisualisationType: 'graph',
+      },
+      fields: [],
     });
 
-    return frame;
+    let fields = [];
+    console.log(data);
+    if (data.hits?.length) {
+      logsData.addField({
+        config: {
+          filterable: true,
+        },
+        name: 'Time',
+        type: FieldType.time,
+      });
+      logsData.addField({
+        name: 'Content',
+        type: FieldType.string,
+      });
+
+      this.streamFields.forEach((field: any) => {
+        fields.push({
+          name: field.name,
+          type: fieldsMapping[field.type],
+        });
+      });
+
+      data.hits.forEach((log: any) => {
+        logsData.add({ ...log, Content: JSON.stringify(log), Time: convertTimeToMs(log._timestamp) });
+      });
+
+      // logsData.meta.preferredVisualisationType = 'logs';
+    }
+
+    if (data.aggs?.histogram?.length) {
+      graphData.addField({
+        config: {
+          filterable: true,
+        },
+        name: 'Time',
+        type: FieldType.time,
+      });
+      graphData.addField({
+        name: 'Value',
+        type: FieldType.number,
+      });
+
+      data.aggs?.histogram.forEach((log: any) => {
+        let histDate = new Date(log.zo_sql_key + 'Z').getTime();
+        graphData.add({ Time: histDate, Value: log.zo_sql_num });
+      });
+      // graphData.meta.preferredVisualisationType = 'logs';
+    }
+
+    return [logsData, graphData];
   }
 
   async query(options: DataQueryRequest<MyQuery>): Promise<DataQueryResponse> {
+    console.log('query', options);
     const timestamps = this.getConsumableTime(options.range);
     const promises = options.targets.map((target) => {
       const reqData = this.buildQuery(target, timestamps);
       return this.doRequest(target, reqData)
         .then((response) => {
-          return this.buildLogsDataFrame(response.hits, target);
+          console.log('target', target);
+          return this.buildDataFrame(response, target)[target?.refId?.includes(REF_ID_STARTER_LOG_VOLUME) ? 1 : 0];
         })
         .catch((err) => {
+          console.log(err);
           let error = '';
           if (err.response !== undefined) {
             error = err.response.data.error;
@@ -155,10 +211,70 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
           sql: 'select * from "[INDEX_NAME]" [WHERE_CLAUSE]',
           start_time: timestamps.startTimeInMicro,
           end_time: timestamps.endTimeInMirco,
-          size: 150,
-          sql_mode: 'full',
+          size: 1000,
+        },
+        aggs: {
+          histogram:
+            'select histogram(' +
+            '_timestamp' +
+            ", '[INTERVAL]') AS zo_sql_key, count(*) AS zo_sql_num from query GROUP BY zo_sql_key ORDER BY zo_sql_key",
         },
       };
+
+      if (timestamps.startTimeInMicro && timestamps.endTimeInMirco) {
+        let chartKeyFormat = 'HH:mm:ss';
+
+        req.query.start_time = timestamps.startTimeInMicro;
+        req.query.end_time = timestamps.endTimeInMirco;
+
+        let chartInterval = '1 second';
+        const timeDifference = timestamps.endTimeInMirco - timestamps.startTimeInMicro;
+
+        if (timeDifference >= 1000 * 60 * 5) {
+          chartInterval = '3 second';
+          chartKeyFormat = 'HH:mm:ss';
+        }
+        if (timeDifference >= 1000 * 60 * 10) {
+          chartInterval = '5 second';
+          chartKeyFormat = 'HH:mm:ss';
+        }
+        if (timeDifference >= 1000 * 60 * 20) {
+          chartInterval = '10 second';
+          chartKeyFormat = 'HH:mm:ss';
+        }
+        if (timeDifference >= 1000 * 60 * 30) {
+          chartInterval = '15 second';
+          chartKeyFormat = 'HH:mm:ss';
+        }
+        if (timeDifference >= 1000 * 60 * 60) {
+          chartInterval = '30 second';
+          chartKeyFormat = 'HH:mm:ss';
+        }
+        if (timeDifference >= 1000 * 3600 * 2) {
+          chartInterval = '1 minute';
+          chartKeyFormat = 'MM-DD HH:mm';
+        }
+        if (timeDifference >= 1000 * 3600 * 6) {
+          chartInterval = '5 minute';
+          chartKeyFormat = 'MM-DD HH:mm';
+        }
+        if (timeDifference >= 1000 * 3600 * 24) {
+          chartInterval = '30 minute';
+          chartKeyFormat = 'MM-DD HH:mm';
+        }
+        if (timeDifference >= 1000 * 86400 * 7) {
+          chartInterval = '1 hour';
+          chartKeyFormat = 'MM-DD HH:mm';
+        }
+        if (timeDifference >= 1000 * 86400 * 30) {
+          chartInterval = '1 day';
+          chartKeyFormat = 'YYYY-MM-DD';
+        }
+        console.log(chartInterval, chartKeyFormat);
+        req.aggs.histogram = req.aggs.histogram.replaceAll('[INTERVAL]', '5 second');
+      } else {
+        return false;
+      }
 
       if (queryData.sqlMode) {
         req.query.sql = queryData.query;
@@ -201,6 +317,7 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
 
       req['encoding'] = 'base64';
       req.query.sql = b64EncodeUnicode(req.query.sql);
+      req.aggs.histogram = b64EncodeUnicode(req.aggs.histogram);
 
       return req;
     } catch (e) {
@@ -210,4 +327,103 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   updateStreamFields(streamFields: any[]) {
     this.streamFields = [...streamFields];
   }
+
+  getDataProvider(
+    type: SupplementaryQueryType,
+    request: DataQueryRequest<MyQuery>
+  ): Observable<DataQueryResponse> | undefined {
+    if (!this.getSupportedSupplementaryQueryTypes().includes(type)) {
+      return undefined;
+    }
+    switch (type) {
+      case SupplementaryQueryType.LogsVolume:
+        return this.getLogsVolumeDataProvider(request);
+      default:
+        return undefined;
+    }
+  }
+
+  getSupportedSupplementaryQueryTypes(): SupplementaryQueryType[] {
+    return [SupplementaryQueryType.LogsVolume, SupplementaryQueryType.LogsSample];
+  }
+
+  getSupplementaryQuery(type: SupplementaryQueryType, query: MyQuery): MyQuery | undefined {
+    if (!this.getSupportedSupplementaryQueryTypes().includes(type)) {
+      return undefined;
+    }
+
+    console.log(type, query);
+
+    // const normalizedQuery = getNormalizedLokiQuery(query);
+    // const expr = removeCommentsFromQuery(normalizedQuery.expr);
+    // let isQuerySuitable = false;
+
+    switch (type) {
+      // case SupplementaryQueryType.LogsVolume:
+      //   // it has to be a logs-producing range-query
+      //   isQuerySuitable = !!(query.expr && isLogsQuery(query.expr) && query.queryType === LokiQueryType.Range);
+      //   if (!isQuerySuitable) {
+      //     return undefined;
+      //   }
+
+      //   return {
+      //     ...normalizedQuery,
+      //     refId: `${REF_ID_STARTER_LOG_VOLUME}${normalizedQuery.refId}`,
+      //     queryType: LokiQueryType.Range,
+      //     supportingQueryType: SupportingQueryType.LogsVolume,
+      //     expr: `sum by (level) (count_over_time(${expr}[$__interval]))`,
+      //   };
+
+      // case SupplementaryQueryType.LogsSample:
+      //   // it has to be a metric query
+      //   isQuerySuitable = !!(query.expr && !isLogsQuery(query.expr));
+      //   if (!isQuerySuitable) {
+      //     return undefined;
+      //   }
+      //   return {
+      //     ...normalizedQuery,
+      //     queryType: LokiQueryType.Range,
+      //     refId: `${REF_ID_STARTER_LOG_SAMPLE}${normalizedQuery.refId}`,
+      //     expr: getLogQueryFromMetricsQuery(expr),
+      //     maxLines: Number.isNaN(Number(options.limit)) ? this.maxLines : Number(options.limit),
+      //   };
+
+      default:
+        return undefined;
+    }
+  }
+
+  getLogsVolumeDataProvider(request: DataQueryRequest<MyQuery>): Observable<DataQueryResponse> | undefined {
+    const logsVolumeRequest = cloneDeep(request);
+    const targets = logsVolumeRequest.targets.map((target) => {
+      target['refId'] = REF_ID_STARTER_LOG_VOLUME + target.refId;
+      return target;
+    });
+    // .filter((query): query is MyQuery => !!query);
+    if (!targets.length) {
+      return undefined;
+    }
+
+    return queryLogsVolume(
+      this,
+      { ...logsVolumeRequest, targets },
+      {
+        extractLevel: () => LogLevel.unknown,
+        range: logsVolumeRequest.range,
+        targets: logsVolumeRequest.targets,
+      }
+    );
+  }
+
+  // getLogsSampleDataProvider(request: DataQueryRequest<MyQuery>): Observable<DataQueryRequest> | undefined {
+  //   const logsSampleRequest = cloneDeep(request);
+  //   const targets = logsSampleRequest.targets;
+  //   // .map((query) => this.getSupplementaryQuery({ type: SupplementaryQueryType.LogsSample, limit: 100 }, query))
+  //   // .filter((query): query is MyQuery => !!query);
+
+  //   if (!targets.length) {
+  //     return undefined;
+  //   }
+  //   // return queryLogsSample(this, { ...logsSampleRequest, targets });
+  // }
 }

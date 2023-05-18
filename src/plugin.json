@@ -23,5 +23,9 @@
     "grafanaDependency": "^9.3.8",
     "plugins": []
   },
-  "logs": true
+  "logs": true,
+  "alerting": true,
+  "annotations": true,
+  "streaming": true,
+  "backend": true
 }

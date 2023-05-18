@@ -44,3 +44,10 @@ export const logsErrorMessage = (code: number) => {
     return '';
   }
 };
+
+export const convertTimeToMs = (time: number) => {
+  const nanoseconds = time;
+  const milliseconds = Math.floor(nanoseconds / 1000);
+  const date = new Date(milliseconds);
+  return date.getTime();
+};
