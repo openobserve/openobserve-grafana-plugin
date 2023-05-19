@@ -1,6 +1,6 @@
 import { FieldType, MutableDataFrame, PreferredVisualisationType } from '@grafana/data';
-import { MyQuery } from 'types';
-import { convertTimeToMs, getFieldType } from 'utils/zincutils';
+import { MyQuery } from '../../types';
+import { convertTimeToMs, getFieldType } from '../../utils/zincutils';
 
 export const getLogsDataFrame = (data: any, target: MyQuery, streamFields: any = []) => {
   const logsData = getDefaultDataFrame(target.refId, 'logs');

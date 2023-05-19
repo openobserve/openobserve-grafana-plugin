@@ -10,13 +10,13 @@ import {
 } from '@grafana/data';
 import { Observable } from 'rxjs';
 import { getBackendSrv } from '@grafana/runtime';
-import { queryLogsVolume } from './features/logs/LogsModel';
+import { queryLogsVolume } from './features/log/LogsModel';
 
 import { MyQuery, MyDataSourceOptions } from './types';
 import { logsErrorMessage, getConsumableTime } from 'utils/zincutils';
 import { getOrganizations } from 'services/organizations';
 import { cloneDeep } from 'lodash';
-import { getGraphDataFrame, getLogsDataFrame } from 'features/logs/queryResponseBuilder';
+import { getGraphDataFrame, getLogsDataFrame } from 'features/log/queryResponseBuilder';
 import { buildQuery } from './features/query/queryBuilder';
 
 const REF_ID_STARTER_LOG_VOLUME = 'log-volume-';
