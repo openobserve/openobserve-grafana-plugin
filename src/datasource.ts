@@ -17,7 +17,7 @@ import { queryLogsVolume } from './LogsModel';
 import { MyQuery, MyDataSourceOptions, TimeRange } from './types';
 import { b64EncodeUnicode, convertTimeToMs, logsErrorMessage } from 'utils/zincutils';
 import { getOrganizations } from 'services/organizations';
-import { cloneDeep } from 'lodash';
+import { cloneDeep, isArray } from 'lodash';
 
 export const REF_ID_STARTER_LOG_VOLUME = 'log-volume-';
 export const REF_ID_STARTER_LOG_SAMPLE = 'log-sample-';
@@ -71,52 +71,45 @@ export class DataSource
 
     let fields = [];
     console.log(data);
-    if (data.hits?.length) {
-      logsData.addField({
-        config: {
-          filterable: true,
-        },
-        name: 'Time',
-        type: FieldType.time,
-      });
-      logsData.addField({
-        name: 'Content',
-        type: FieldType.string,
-      });
+    logsData.addField({
+      config: {
+        filterable: true,
+      },
+      name: 'Time',
+      type: FieldType.time,
+    });
+    logsData.addField({
+      name: 'Content',
+      type: FieldType.string,
+    });
 
-      this.streamFields.forEach((field: any) => {
-        fields.push({
-          name: field.name,
-          type: fieldsMapping[field.type],
-        });
+    this.streamFields.forEach((field: any) => {
+      fields.push({
+        name: field.name,
+        type: fieldsMapping[field.type],
       });
+    });
 
-      data.hits.forEach((log: any) => {
-        logsData.add({ ...log, Content: JSON.stringify(log), Time: convertTimeToMs(log._timestamp) });
-      });
+    data.hits.forEach((log: any) => {
+      logsData.add({ ...log, Content: JSON.stringify(log), Time: convertTimeToMs(log._timestamp) });
+    });
 
-      // logsData.meta.preferredVisualisationType = 'logs';
-    }
+    graphData.addField({
+      config: {
+        filterable: true,
+      },
+      name: 'Time',
+      type: FieldType.time,
+    });
+    graphData.addField({
+      name: 'Value',
+      type: FieldType.number,
+    });
 
-    if (data.aggs?.histogram?.length) {
-      graphData.addField({
-        config: {
-          filterable: true,
-        },
-        name: 'Time',
-        type: FieldType.time,
-      });
-      graphData.addField({
-        name: 'Value',
-        type: FieldType.number,
-      });
-
-      data.aggs?.histogram.forEach((log: any) => {
-        let histDate = new Date(log.zo_sql_key + 'Z').getTime();
-        graphData.add({ Time: histDate, Value: log.zo_sql_num });
-      });
-      // graphData.meta.preferredVisualisationType = 'logs';
-    }
+    data.aggs?.histogram.forEach((log: any) => {
+      let histDate = new Date(log.zo_sql_key + 'Z').getTime();
+      graphData.add({ Time: histDate, Value: log.zo_sql_num });
+    });
 
     return [logsData, graphData];
   }
@@ -228,7 +221,8 @@ export class DataSource
         req.query.end_time = timestamps.endTimeInMirco;
 
         let chartInterval = '1 second';
-        const timeDifference = timestamps.endTimeInMirco - timestamps.startTimeInMicro;
+
+        const timeDifference = (timestamps.endTimeInMirco - timestamps.startTimeInMicro) / 1000;
 
         if (timeDifference >= 1000 * 60 * 5) {
           chartInterval = '3 second';
@@ -271,7 +265,7 @@ export class DataSource
           chartKeyFormat = 'YYYY-MM-DD';
         }
         console.log(chartInterval, chartKeyFormat);
-        req.aggs.histogram = req.aggs.histogram.replaceAll('[INTERVAL]', '5 second');
+        req.aggs.histogram = req.aggs.histogram.replaceAll('[INTERVAL]', chartInterval);
       } else {
         return false;
       }
