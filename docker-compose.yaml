@@ -2,7 +2,7 @@ version: '3.0'
 
 services:
   grafana:
-    container_name: 'zinc-grafanatest-datasource'
+    container_name: 'zinclabs-zincobserve'
     build:
       context: ./.config
       args:
@@ -10,5 +10,5 @@ services:
     ports:
       - 3000:3000/tcp
     volumes:
-      - ./dist:/var/lib/grafana/plugins/zinc-grafanatest-datasource
+      - ./dist:/var/lib/grafana/plugins/zinclabs-zincobserve
       - ./provisioning:/etc/grafana/provisioning
