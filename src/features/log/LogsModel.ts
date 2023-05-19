@@ -65,8 +65,6 @@ export function queryLogsVolume<TQuery extends DataQuery, TOptions extends DataS
       data: [],
     });
 
-    console.log(logsVolumeRequest);
-
     const queryResponse = datasource.query(logsVolumeRequest);
 
     let queryObservable: Observable<DataQueryResponse>;
@@ -76,15 +74,12 @@ export function queryLogsVolume<TQuery extends DataQuery, TOptions extends DataS
     } else {
       queryObservable = from(queryResponse as ObservableInput<DataQueryResponse>);
     }
-    console.log(queryObservable);
     const subscription = queryObservable.subscribe({
       complete: () => {
-        console.log('complete');
         observer.complete();
       },
       next: (dataQueryResponse: DataQueryResponse) => {
         const { error } = dataQueryResponse;
-        console.log(dataQueryResponse);
         if (error !== undefined) {
           observer.next({
             state: LoadingState.Error,
@@ -94,7 +89,6 @@ export function queryLogsVolume<TQuery extends DataQuery, TOptions extends DataS
           observer.error(error);
         } else {
           const framesByRefId = groupBy(dataQueryResponse.data, 'refId');
-          console.log('frames by ref id', framesByRefId, options);
 
           logsVolumeData = dataQueryResponse.data.map((dataFrame) => {
             let sourceRefId = dataFrame.refId || '';
@@ -119,8 +113,6 @@ export function queryLogsVolume<TQuery extends DataQuery, TOptions extends DataS
             return updateLogsVolumeConfig(dataFrame, options.extractLevel, framesByRefId[dataFrame.refId].length === 1);
           });
 
-          console.log(logsVolumeData);
-
           observer.next({
             state: dataQueryResponse.state,
             error: undefined,
@@ -129,7 +121,6 @@ export function queryLogsVolume<TQuery extends DataQuery, TOptions extends DataS
         }
       },
       error: (error) => {
-        console.log(error);
         observer.next({
           state: LoadingState.Error,
           error: error,

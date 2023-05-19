@@ -48,19 +48,22 @@ export class DataSource
           return getLogsDataFrame(response, target, this.streamFields);
         })
         .catch((err) => {
-          console.log(err);
-          let error = '';
-          if (err.response !== undefined) {
-            error = err.response.data.error;
+          let error = {
+            message: '',
+            detail: '',
+          };
+          if (err.data) {
+            error.message = err.data?.message;
+            error.detail = err.data?.error_detail;
           } else {
-            error = err.message;
+            error.message = err.statusText;
           }
 
-          const customMessage = logsErrorMessage(err.response.data.code);
+          const customMessage = logsErrorMessage(err.data.code);
           if (customMessage) {
-            error = customMessage;
+            error.message = customMessage;
           }
-          throw new Error(error);
+          throw new Error(error.message + (error.detail ? ` ( ${error.detail} ) ` : ''));
         });
     });
 
