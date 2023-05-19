@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
   "name": "ZincObserve",
-  "id": "zinc-grafanatest-datasource",
+  "id": "zinclabs-zincobserve",
   "info": {
     "description": "Zinc observe",
     "author": {
