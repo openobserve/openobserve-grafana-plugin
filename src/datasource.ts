@@ -3,17 +3,28 @@ import {
   DataQueryResponse,
   DataSourceApi,
   DataSourceInstanceSettings,
-  MutableDataFrame,
-  FieldType,
   QueryFixAction,
+  DataSourceWithSupplementaryQueriesSupport,
+  SupplementaryQueryType,
+  LogLevel,
 } from '@grafana/data';
-
+import { Observable } from 'rxjs';
 import { getBackendSrv } from '@grafana/runtime';
+import { queryLogsVolume } from './features/log/LogsModel';
 
-import { MyQuery, MyDataSourceOptions, TimeRange } from './types';
-import { b64EncodeUnicode, logsErrorMessage } from 'utils/zincutils';
+import { MyQuery, MyDataSourceOptions } from './types';
+import { logsErrorMessage, getConsumableTime } from 'utils/zincutils';
 import { getOrganizations } from 'services/organizations';
-export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
+import { cloneDeep } from 'lodash';
+import { getGraphDataFrame, getLogsDataFrame } from 'features/log/queryResponseBuilder';
+import { buildQuery } from './features/query/queryBuilder';
+
+const REF_ID_STARTER_LOG_VOLUME = 'log-volume-';
+
+export class DataSource
+  extends DataSourceApi<MyQuery, MyDataSourceOptions>
+  implements DataSourceWithSupplementaryQueriesSupport<MyQuery>
+{
   instanceSettings?: DataSourceInstanceSettings<MyDataSourceOptions>;
   url: string;
   streamFields: any[];
@@ -25,70 +36,34 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     this.streamFields = [];
   }
 
-  getConsumableTime(range: any) {
-    const startTimeInMicro: any = new Date(new Date(range!.from.valueOf()).toISOString()).getTime() * 1000;
-    const endTimeInMirco: any = new Date(new Date(range!.to.valueOf()).toISOString()).getTime() * 1000;
-    return {
-      startTimeInMicro,
-      endTimeInMirco,
-    };
-  }
-
-  buildLogsDataFrame(logs: any[], target: MyQuery) {
-    const fieldsMapping: { [key: string]: FieldType } = {
-      Utf8: FieldType.string,
-      Int64: FieldType.number,
-      timestamp: FieldType.time,
-    };
-
-    const fields = [
-      { name: 'Time', type: FieldType.time },
-      { name: 'Content', type: FieldType.string },
-    ];
-
-    this.streamFields.forEach((field: any) => {
-      fields.push({
-        name: field.name,
-        type: fieldsMapping[field.type],
-      });
-    });
-
-    const frame = new MutableDataFrame({
-      refId: target.refId,
-      meta: {
-        preferredVisualisationType: 'logs',
-      },
-      fields,
-    });
-
-    logs.forEach((log: any) => {
-      frame.add({ ...log, Content: JSON.stringify(log) });
-    });
-
-    return frame;
-  }
-
   async query(options: DataQueryRequest<MyQuery>): Promise<DataQueryResponse> {
-    const timestamps = this.getConsumableTime(options.range);
+    const timestamps = getConsumableTime(options.range);
     const promises = options.targets.map((target) => {
-      const reqData = this.buildQuery(target, timestamps);
+      const reqData = buildQuery(target, timestamps, this.streamFields);
       return this.doRequest(target, reqData)
         .then((response) => {
-          return this.buildLogsDataFrame(response.hits, target);
+          if (target?.refId?.includes(REF_ID_STARTER_LOG_VOLUME)) {
+            return getGraphDataFrame(response, target);
+          }
+          return getLogsDataFrame(response, target, this.streamFields);
         })
         .catch((err) => {
-          let error = '';
-          if (err.response !== undefined) {
-            error = err.response.data.error;
+          let error = {
+            message: '',
+            detail: '',
+          };
+          if (err.data) {
+            error.message = err.data?.message;
+            error.detail = err.data?.error_detail;
           } else {
-            error = err.message;
+            error.message = err.statusText;
           }
 
-          const customMessage = logsErrorMessage(err.response.data.code);
+          const customMessage = logsErrorMessage(err.data.code);
           if (customMessage) {
-            error = customMessage;
+            error.message = customMessage;
           }
-          throw new Error(error);
+          throw new Error(error.message + (error.detail ? ` ( ${error.detail} ) ` : ''));
         });
     });
 
@@ -146,68 +121,54 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     return { ...query, query: expression };
   }
 
-  buildQuery(queryData: MyQuery, timestamps: TimeRange) {
-    try {
-      let query: string = queryData.query || '';
-
-      let req: any = {
-        query: {
-          sql: 'select * from "[INDEX_NAME]" [WHERE_CLAUSE]',
-          start_time: timestamps.startTimeInMicro,
-          end_time: timestamps.endTimeInMirco,
-          size: 150,
-          sql_mode: 'full',
-        },
-      };
-
-      if (queryData.sqlMode) {
-        req.query.sql = queryData.query;
-      }
-
-      if (!queryData.sqlMode) {
-        let whereClause = query;
-
-        if (query.trim().length) {
-          whereClause = whereClause
-            .replace(/=(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' =')
-            .replace(/>(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' >')
-            .replace(/<(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' <');
-
-          whereClause = whereClause
-            .replace(/!=(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' !=')
-            .replace(/! =(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' !=')
-            .replace(/< =(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' <=')
-            .replace(/> =(?=(?:[^"']*"[^"']*"')*[^"']*$)/g, ' >=');
-
-          const parsedSQL = whereClause.split(' ');
-          this.streamFields.forEach((field: any) => {
-            parsedSQL.forEach((node: any, index: any) => {
-              if (node === field.name) {
-                node = node.replaceAll('"', '');
-                parsedSQL[index] = '"' + node + '"';
-              }
-            });
-          });
-
-          whereClause = parsedSQL.join(' ');
-
-          req.query.sql = req.query.sql.replace('[WHERE_CLAUSE]', ' WHERE ' + whereClause);
-        } else {
-          req.query.sql = req.query.sql.replace('[WHERE_CLAUSE]', '');
-        }
-
-        req.query.sql = req.query.sql.replace('[INDEX_NAME]', queryData.stream);
-      }
-
-      req['encoding'] = 'base64';
-      req.query.sql = b64EncodeUnicode(req.query.sql);
-
-      return req;
-    } catch (e) {
-      console.log('error in building query:', e);
-    }
-  }
   updateStreamFields(streamFields: any[]) {
     this.streamFields = [...streamFields];
+  }
+
+  getDataProvider(
+    type: SupplementaryQueryType,
+    request: DataQueryRequest<MyQuery>
+  ): Observable<DataQueryResponse> | undefined {
+    if (!this.getSupportedSupplementaryQueryTypes().includes(type)) {
+      return undefined;
+    }
+
+    switch (type) {
+      case SupplementaryQueryType.LogsVolume:
+        return this.getLogsVolumeDataProvider(request);
+      default:
+        return undefined;
+    }
+  }
+
+  getSupportedSupplementaryQueryTypes(): SupplementaryQueryType[] {
+    return [SupplementaryQueryType.LogsVolume];
+    // return [SupplementaryQueryType.LogsVolume, SupplementaryQueryType.LogsSample];
+  }
+
+  getSupplementaryQuery(type: SupplementaryQueryType, query: MyQuery): MyQuery | undefined {
+    return undefined;
+  }
+
+  getLogsVolumeDataProvider(request: DataQueryRequest<MyQuery>): Observable<DataQueryResponse> | undefined {
+    const logsVolumeRequest = cloneDeep(request);
+    const targets = logsVolumeRequest.targets.map((target) => {
+      target['refId'] = REF_ID_STARTER_LOG_VOLUME + target.refId;
+      return target;
+    });
+
+    if (!targets.length) {
+      return undefined;
+    }
+
+    return queryLogsVolume(
+      this,
+      { ...logsVolumeRequest, targets },
+      {
+        extractLevel: () => LogLevel.unknown,
+        range: logsVolumeRequest.range,
+        targets: logsVolumeRequest.targets,
+      }
+    );
   }
 }

@@ -1,3 +1,6 @@
+import { FieldType } from '@grafana/data';
+import { config } from '@grafana/runtime';
+
 export const b64EncodeUnicode = (str: string) => {
   try {
     return btoa(
@@ -43,4 +46,34 @@ export const logsErrorMessage = (code: number) => {
   } else {
     return '';
   }
+};
+
+export const convertTimeToMs = (time: number) => {
+  const nanoseconds = time;
+  const milliseconds = Math.floor(nanoseconds / 1000);
+  const date = new Date(milliseconds);
+  return date.getTime();
+};
+
+export const getTheme = () => {
+  return config.bootData.user.theme;
+};
+
+export const getConsumableTime = (range: any) => {
+  const startTimeInMicro: any = new Date(new Date(range!.from.valueOf()).toISOString()).getTime() * 1000;
+  const endTimeInMirco: any = new Date(new Date(range!.to.valueOf()).toISOString()).getTime() * 1000;
+  return {
+    startTimeInMicro,
+    endTimeInMirco,
+  };
+};
+
+export const getFieldType = (type: string) => {
+  const fieldsMapping: { [key: string]: FieldType } = {
+    Utf8: FieldType.string,
+    Int64: FieldType.number,
+    timestamp: FieldType.time,
+  };
+
+  return fieldsMapping[type];
 };
