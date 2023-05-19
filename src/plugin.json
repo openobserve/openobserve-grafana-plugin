@@ -3,7 +3,6 @@
   "type": "datasource",
   "name": "ZincObserve",
   "id": "zinc-grafanatest-datasource",
-  "metrics": true,
   "info": {
     "description": "Zinc observe",
     "author": {
@@ -24,8 +23,5 @@
     "plugins": []
   },
   "logs": true,
-  "alerting": true,
-  "annotations": true,
-  "streaming": true,
-  "backend": true
+  "metrics": true
 }

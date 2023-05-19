@@ -1,8 +1,6 @@
 import { groupBy } from 'lodash';
 import { from, isObservable, Observable, ObservableInput } from 'rxjs';
-
 import {
-  AbsoluteTimeRange,
   DataFrame,
   DataQuery,
   DataQueryRequest,
@@ -23,15 +21,7 @@ import {
 } from '@grafana/data';
 import { BarAlignment, GraphDrawStyle, StackingMode } from '@grafana/schema';
 import { colors } from '@grafana/ui';
-
-export const LIMIT_LABEL = 'Line limit';
-export const COMMON_LABELS = 'Common labels';
-
-// const MILLISECOND = 1;
-// const SECOND = 1000 * MILLISECOND;
-// const MINUTE = 60 * SECOND;
-// const HOUR = 60 * MINUTE;
-// const DAY = 24 * HOUR;
+import { getTheme } from 'utils/zincutils';
 
 export const LogLevelColor = {
   [LogLevel.critical]: colors[7],
@@ -40,7 +30,7 @@ export const LogLevelColor = {
   [LogLevel.info]: colors[0],
   [LogLevel.debug]: colors[5],
   [LogLevel.trace]: colors[2],
-  [LogLevel.unknown]: colors[2],
+  [LogLevel.unknown]: getTheme() === 'light' ? '#8e8e8e' : '#bdc4cd',
 };
 
 export function filterLogLevels(logRows: LogRowModel[], hiddenLogLevels: Set<LogLevel>): LogRowModel[] {
@@ -51,60 +41,6 @@ export function filterLogLevels(logRows: LogRowModel[], hiddenLogLevels: Set<Log
   return logRows.filter((row: LogRowModel) => {
     return !hiddenLogLevels.has(row.logLevel);
   });
-}
-
-/**
- * Convert dataFrame into LogsModel which consists of creating separate array of log rows and metrics series. Metrics
- * series can be either already included in the dataFrame or will be computed from the log rows.
- * @param dataFrame
- * @param intervalMs Optional. In case there are no metrics series, we use this for computing it from log rows.
- * @param absoluteRange Optional. Used to store absolute range of executed queries in logs model. This is used for pagination.
- * @param queries Optional. Used to store executed queries in logs model. This is used for pagination.
- */
-
-/**
- * Returns a clamped time range and interval based on the visible logs and the given range.
- *
- * @param sortedRows Log rows from the query response
- * @param intervalMs Dynamic data interval based on available pixel width
- * @param absoluteRange Requested time range
- * @param pxPerBar Default: 20, buckets will be rendered as bars, assuming 10px per histogram bar plus some free space around it
- */
-export function getSeriesProperties(
-  sortedRows: LogRowModel[],
-  intervalMs: number,
-  absoluteRange?: AbsoluteTimeRange,
-  pxPerBar = 20,
-  minimumBucketSize = 1000
-) {
-  let visibleRange = absoluteRange;
-  let resolutionIntervalMs = intervalMs;
-  let bucketSize = Math.max(resolutionIntervalMs * pxPerBar, minimumBucketSize);
-  let visibleRangeMs;
-  let requestedRangeMs;
-  // Clamp time range to visible logs otherwise big parts of the graph might look empty
-  if (absoluteRange) {
-    const earliestTsLogs = sortedRows[0].timeEpochMs;
-
-    requestedRangeMs = absoluteRange.to - absoluteRange.from;
-    visibleRangeMs = absoluteRange.to - earliestTsLogs;
-
-    if (visibleRangeMs > 0) {
-      // Adjust interval bucket size for potentially shorter visible range
-      const clampingFactor = visibleRangeMs / requestedRangeMs;
-      resolutionIntervalMs *= clampingFactor;
-      // Minimum bucketsize of 1s for nicer graphing
-      bucketSize = Math.max(Math.ceil(resolutionIntervalMs * pxPerBar), minimumBucketSize);
-      // makeSeriesForLogs() aligns dataspoints with time buckets, so we do the same here to not cut off data
-      const adjustedEarliest = Math.floor(earliestTsLogs / bucketSize) * bucketSize;
-      visibleRange = { from: adjustedEarliest, to: absoluteRange.to };
-    } else {
-      // We use visibleRangeMs to calculate range coverage of received logs. However, some data sources are rounding up range in requests. This means that received logs
-      // can (in edge cases) be outside of the requested range and visibleRangeMs < 0. In that case, we want to change visibleRangeMs to be 1 so we can calculate coverage.
-      visibleRangeMs = 1;
-    }
-  }
-  return { bucketSize, visibleRange, visibleRangeMs, requestedRangeMs };
 }
 
 type LogsVolumeQueryOptions<T extends DataQuery> = {
@@ -317,30 +253,3 @@ function getLogVolumeFieldConfig(level: LogLevel, oneLevelDetected: boolean) {
     },
   };
 }
-// function getIntervalInfo(scopedVars: ScopedVars, timespanMs: number): { interval: string; intervalMs?: number } {
-//   if (scopedVars.__interval_ms) {
-//     let intervalMs: number = scopedVars.__interval_ms.value;
-//     let interval = '';
-//     // below 5 seconds we force the resolution to be per 1ms as interval in scopedVars is not less than 10ms
-//     if (timespanMs < SECOND * 5) {
-//       intervalMs = MILLISECOND;
-//       interval = '1ms';
-//     } else if (intervalMs > HOUR) {
-//       intervalMs = DAY;
-//       interval = '1d';
-//     } else if (intervalMs > MINUTE) {
-//       intervalMs = HOUR;
-//       interval = '1h';
-//     } else if (intervalMs > SECOND) {
-//       intervalMs = MINUTE;
-//       interval = '1m';
-//     } else {
-//       intervalMs = SECOND;
-//       interval = '1s';
-//     }
-
-//     return { interval, intervalMs };
-//   } else {
-//     return { interval: '$__interval' };
-//   }
-// }

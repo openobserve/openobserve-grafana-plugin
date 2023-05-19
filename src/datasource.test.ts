@@ -1,6 +1,7 @@
 import { MyDataSourceOptions } from 'types';
 import { DataSource } from './datasource';
 import { DataSourceInstanceSettings, PluginSignatureStatus, PluginType } from '@grafana/data';
+import { buildQuery } from 'features/query/queryBuilder';
 
 let DateTime = {
   add: jest.fn(),
@@ -27,6 +28,12 @@ let DateTime = {
   hour: jest.fn(),
   minute: jest.fn(),
 };
+
+jest.mock('rxjs', () => {
+  return {
+    Observable: jest.fn(),
+  };
+});
 
 jest.mock('@grafana/runtime', () => ({
   ...jest.requireActual('@grafana/runtime'),
@@ -118,21 +125,6 @@ describe('DataSource', () => {
 
   beforeEach(() => {
     ds = new DataSource(instanceSettings);
-  });
-
-  describe('getConsumableTime', () => {
-    it('should convert range to microsecond format', () => {
-      const range = {
-        from: new Date('2023-05-16T00:00:00Z'),
-        to: new Date('2023-05-16T01:00:00Z'),
-      };
-      const result = ds.getConsumableTime(range);
-
-      expect(result).toEqual({
-        startTimeInMicro: range.from.getTime() * 1000,
-        endTimeInMirco: range.to.getTime() * 1000,
-      });
-    });
   });
 
   describe('testDatasource', () => {
@@ -405,7 +397,7 @@ describe('DataSource', () => {
       encoding: 'base64',
     };
     beforeEach(async () => {
-      result = ds.buildQuery(queryData, timestamps);
+      result = buildQuery(queryData, timestamps, queryData.streamFields);
     });
     it('should return query request data', () => {
       expect(JSON.stringify(result)).toMatch(JSON.stringify(expectedReq));
