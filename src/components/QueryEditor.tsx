@@ -15,6 +15,7 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource }: Props) 
   const [streamDetails, setStreamDetails]: any = useState({});
   const [streamOptions, setStreamOptions]: any = useState([]);
   const [orgOptions, setOrgOptions]: any = useState([]);
+  const [isMounted, setIsMounted]: any = useState(false);
 
   useEffect(() => {
     getOrganizations({ url: datasource.url, page_num: 0, page_size: 1000, sort_by: 'id' })
@@ -26,12 +27,6 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource }: Props) 
           })),
         ]);
         setupStreams(orgs.data[0].name).then((streams: any) => {
-          onChange({
-            ...query,
-            stream: streams[0].name,
-            organization: orgs.data[0].name,
-            sqlMode: false,
-          });
           datasource.updateStreamFields(streams[0].schema);
           setStreamOptions([
             ...Object.values(streams).map((stream: any) => ({
@@ -39,7 +34,15 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource }: Props) 
               value: stream.name,
             })),
           ]);
-          onRunQuery();
+          if (!(query.organization && query.stream && query.hasOwnProperty('sqlMode'))) {
+            onChange({
+              ...query,
+              stream: streams[0].name,
+              organization: orgs.data[0].name,
+              sqlMode: false,
+            });
+          }
+          setIsMounted(true);
         });
       })
       .catch((err) => console.log(err));
@@ -47,7 +50,7 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource }: Props) 
   }, []);
 
   useEffect(() => {
-    if (query.sqlMode !== undefined && query.stream) {
+    if (query.sqlMode !== undefined && query.stream && isMounted) {
       updateQuery();
     }
 
@@ -55,7 +58,7 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource }: Props) 
   }, [query.sqlMode, query.organization, query.stream]);
 
   useEffect(() => {
-    if (query.stream && query.organization) {
+    if (query.stream && query.organization && isMounted) {
       updateQuery();
       onRunQuery();
     }
@@ -117,7 +120,7 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource }: Props) 
         stream: streams[0].name,
         organization: organization.value,
       });
-      datasource.updateStreamFields(cloneDeep(streamDetails[streams[0].name].schema));
+      datasource.updateStreamFields(cloneDeep(streams[0].schema));
       setStreamOptions([
         ...streams.map((stream: any) => ({
           label: stream.name,
