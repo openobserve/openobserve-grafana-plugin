@@ -7,4 +7,4 @@ ZincObserve
 
 # License
 
-ZinocObserve commercial license. Please contact hello@zinclabs.io for more information.
+ZincObserve commercial license. Please contact hello@zinclabs.io for more information.
