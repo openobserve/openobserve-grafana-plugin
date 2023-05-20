@@ -9,11 +9,10 @@ spec:
       name: letsencrypt-prod
     server: https://acme-v02.api.letsencrypt.org/directory
     solvers:
-    - http01:
-        ingress:
-          class: nginx
+      - http01:
+          ingress:
+            class: nginx
 ---
-
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -33,23 +32,34 @@ spec:
         fsGroup: 2000
         runAsUser: 10000
         runAsGroup: 3000
-      # initContainers:
-      # - name: zincobserve_plugin_loader
-      #   image: busybox
-      #   command: ['sh', '-c', 'cp -R /code/dist/* /var/lib/grafana/plugins/']
+      initContainers:
+        - name: zincobserve-plugin-loader
+          image: wbitt/network-multitool
+          imagePullPolicy: IfNotPresent
+          command:
+            [
+              "sh",
+              "-c",
+              "curl -o /tmp/zo_gp.tar.gz https://zincsearch-releases.s3.us-west-2.amazonaws.com/zo_gp/zo_gp.tar.gz && cd /tmp && cp zo_gp.tar.gz /var/lib/grafana/plugins/zo_gp.tar.gz && cd /var/lib/grafana/plugins &&  tar -zxvf zo_gp.tar.gz",
+            ]
+          volumeMounts:
+            - name: grafana-base
+              mountPath: /var/lib/grafana
+            - name: grafana-plugins
+              mountPath: /var/lib/grafana/plugins
       containers:
-      - name: grafana
-        image: grafana/grafana:latest
-        ports:
-        - containerPort: 3000
-          name: grafana
-        volumeMounts:
-        - name: grafana-base
-          mountPath: /var/lib/grafana
-        - name: grafana-plugins
-          mountPath: /var/lib/grafana/plugins
-        - name: grafana-config
-          mountPath: /etc/grafana
+        - name: grafana
+          image: grafana/grafana:latest
+          ports:
+            - containerPort: 3000
+              name: grafana
+          volumeMounts:
+            - name: grafana-base
+              mountPath: /var/lib/grafana
+            - name: grafana-plugins
+              mountPath: /var/lib/grafana/plugins
+            - name: grafana-config
+              mountPath: /etc/grafana
       volumes:
         - name: grafana-base
           persistentVolumeClaim:
@@ -62,20 +72,20 @@ spec:
             defaultMode: 420
             secretName: grafana-config
   volumeClaimTemplates:
-  - metadata:
-      name: grafana-base
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi
-  - metadata:
-      name: grafana-plugins
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi
+    - metadata:
+        name: grafana-base
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+    - metadata:
+        name: grafana-plugins
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
 ---
 apiVersion: v1
 kind: Service
@@ -83,13 +93,12 @@ metadata:
   name: grafana
 spec:
   ports:
-  - port: 3000
-    targetPort: 3000
+    - port: 3000
+      targetPort: 3000
   selector:
     app: grafana
 
 ---
-
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -99,17 +108,17 @@ metadata:
   name: g2.gke.zinclabs.dev
 spec:
   rules:
-  - host: g2.gke.zinclabs.dev
-    http:
-      paths:
-      - pathType: Prefix
-        backend:
-          service:
-            name: grafana
-            port:
-              number: 3000
-        path: /
+    - host: g2.gke.zinclabs.dev
+      http:
+        paths:
+          - pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+            path: /
   tls:
-  - hosts:
-    - g2.gke.zinclabs.dev
-    secretName: g2.gke.zinclabs.dev
+    - hosts:
+        - g2.gke.zinclabs.dev
+      secretName: g2.gke.zinclabs.dev
