@@ -2,13 +2,15 @@
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
   "name": "ZincObserve",
-  "id": "zinclabs-zincobserve",
+  "id": "zinclabs_zincobserve",
   "info": {
     "description": "Zinc Observe",
     "author": {
       "name": "ZincLabs"
     },
-    "keywords": ["ZincObserve"],
+    "keywords": [
+      "ZincObserve"
+    ],
     "logos": {
       "small": "img/logo.png",
       "large": "img/logo.png"
