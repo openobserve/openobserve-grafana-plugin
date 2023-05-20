@@ -1,3 +1,19 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    email: admin@zinclabs.io
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    server: https://acme-v02.api.letsencrypt.org/directory
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+---
+
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -13,10 +29,14 @@ spec:
       labels:
         app: grafana
     spec:
-      initContainers:
-      - name: zincobserve_plugin_loader
-        image: busybox
-        command: ['sh', '-c', 'cp -R /code/dist/* /var/lib/grafana/plugins/']
+      securityContext:
+        fsGroup: 2000
+        runAsUser: 10000
+        runAsGroup: 3000
+      # initContainers:
+      # - name: zincobserve_plugin_loader
+      #   image: busybox
+      #   command: ['sh', '-c', 'cp -R /code/dist/* /var/lib/grafana/plugins/']
       containers:
       - name: grafana
         image: grafana/grafana:latest
@@ -28,6 +48,8 @@ spec:
           mountPath: /var/lib/grafana
         - name: grafana-plugins
           mountPath: /var/lib/grafana/plugins
+        - name: grafana-config
+          mountPath: /etc/grafana
       volumes:
         - name: grafana-base
           persistentVolumeClaim:
