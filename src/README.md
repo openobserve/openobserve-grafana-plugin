@@ -3,3 +3,8 @@
 # ZincObserve 
 
 ZincObserve
+
+
+# License
+
+ZinocObserve commercial license. Please contact hello@zinclabs.io for more information.
