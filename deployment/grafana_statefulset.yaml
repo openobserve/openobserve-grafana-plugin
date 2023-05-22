@@ -1,0 +1,124 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    email: admin@zinclabs.io
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    server: https://acme-v02.api.letsencrypt.org/directory
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: grafana
+spec:
+  serviceName: "grafana"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      securityContext:
+        fsGroup: 2000
+        runAsUser: 10000
+        runAsGroup: 3000
+      initContainers:
+        - name: zincobserve-plugin-loader
+          image: wbitt/network-multitool
+          imagePullPolicy: IfNotPresent
+          command:
+            [
+              "sh",
+              "-c",
+              "curl -o /var/lib/grafana/plugins/zo_gp.tar.gz https://zincsearch-releases.s3.us-west-2.amazonaws.com/zo_gp/zo_gp.tar.gz && cd /var/lib/grafana/plugins &&  tar -zxvf zo_gp.tar.gz",
+            ]
+          volumeMounts:
+            - name: grafana-base
+              mountPath: /var/lib/grafana
+            - name: grafana-plugins
+              mountPath: /var/lib/grafana/plugins
+      containers:
+        - name: grafana
+          image: grafana/grafana:latest
+          ports:
+            - containerPort: 3000
+              name: grafana
+          volumeMounts:
+            - name: grafana-base
+              mountPath: /var/lib/grafana
+            - name: grafana-plugins
+              mountPath: /var/lib/grafana/plugins
+            - name: grafana-config
+              mountPath: /etc/grafana
+      volumes:
+        - name: grafana-base
+          persistentVolumeClaim:
+            claimName: grafana-base
+        - name: grafana-plugins
+          persistentVolumeClaim:
+            claimName: grafana-plugins
+        - name: grafana-config
+          secret:
+            defaultMode: 420
+            secretName: grafana-config
+  volumeClaimTemplates:
+    - metadata:
+        name: grafana-base
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+    - metadata:
+        name: grafana-plugins
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+spec:
+  ports:
+    - port: 3000
+      targetPort: 3000
+  selector:
+    app: grafana
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: nginx
+  name: g2.gke.zinclabs.dev
+spec:
+  rules:
+    - host: g2.gke.zinclabs.dev
+      http:
+        paths:
+          - pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+            path: /
+  tls:
+    - hosts:
+        - g2.gke.zinclabs.dev
+      secretName: g2.gke.zinclabs.dev
