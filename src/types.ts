@@ -37,3 +37,13 @@ export interface TimeRange {
   startTimeInMicro: number;
   endTimeInMirco: number;
 }
+
+export interface CachedQuery {
+  requestQuery: string;
+  data: Promise<any> | null;
+  isFetching: boolean;
+  promise: {
+    resolve: (value: unknown) => void;
+    reject: (value: unknown) => void;
+  } | null;
+}

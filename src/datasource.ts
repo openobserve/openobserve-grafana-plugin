@@ -12,7 +12,7 @@ import { Observable } from 'rxjs';
 import { getBackendSrv } from '@grafana/runtime';
 import { queryLogsVolume } from './features/log/LogsModel';
 
-import { MyQuery, MyDataSourceOptions } from './types';
+import { MyQuery, MyDataSourceOptions, CachedQuery } from './types';
 import { logsErrorMessage, getConsumableTime } from 'utils/zincutils';
 import { getOrganizations } from 'services/organizations';
 import { cloneDeep } from 'lodash';
@@ -28,26 +28,59 @@ export class DataSource
   instanceSettings?: DataSourceInstanceSettings<MyDataSourceOptions>;
   url: string;
   streamFields: any[];
+  cachedQuery: CachedQuery;
 
   constructor(instanceSettings: DataSourceInstanceSettings<MyDataSourceOptions>) {
     super(instanceSettings);
     this.url = instanceSettings.url || '';
     this.instanceSettings = instanceSettings;
     this.streamFields = [];
+    this.cachedQuery = {
+      requestQuery: '',
+      isFetching: false,
+      data: null,
+      promise: null,
+    };
   }
 
   async query(options: DataQueryRequest<MyQuery>): Promise<DataQueryResponse> {
     const timestamps = getConsumableTime(options.range);
     const promises = options.targets.map((target) => {
+      if (!this.cachedQuery.data) {
+        this.cachedQuery.data = new Promise((resolve, reject) => {
+          this.cachedQuery.promise = {
+            resolve,
+            reject,
+          };
+        });
+      }
       const reqData = buildQuery(target, timestamps, this.streamFields);
+      if (JSON.stringify(reqData) === this.cachedQuery.requestQuery) {
+        return this.cachedQuery.data
+          ?.then((res) => {
+            if (target?.refId?.includes(REF_ID_STARTER_LOG_VOLUME)) {
+              return res.graph;
+            }
+            return res.logs;
+          })
+          .finally(() => {
+            this.resetQueryCache();
+          });
+      }
+      this.cachedQuery.requestQuery = JSON.stringify(reqData);
+      this.cachedQuery.isFetching = true;
       return this.doRequest(target, reqData)
         .then((response) => {
+          const graphDataFrame = getGraphDataFrame(response, target);
+          const logsDataFrame = getLogsDataFrame(response, target, this.streamFields);
+          this.cachedQuery.promise?.resolve({ graph: graphDataFrame, logs: logsDataFrame });
           if (target?.refId?.includes(REF_ID_STARTER_LOG_VOLUME)) {
-            return getGraphDataFrame(response, target);
+            return graphDataFrame;
           }
-          return getLogsDataFrame(response, target, this.streamFields);
+          return logsDataFrame;
         })
         .catch((err) => {
+          this.cachedQuery.promise?.reject(err);
           let error = {
             message: '',
             detail: '',
@@ -64,6 +97,9 @@ export class DataSource
             error.message = customMessage;
           }
           throw new Error(error.message + (error.detail ? ` ( ${error.detail} ) ` : ''));
+        })
+        .finally(() => {
+          this.cachedQuery.isFetching = false;
         });
     });
 
@@ -76,6 +112,15 @@ export class DataSource
     return getBackendSrv().post(this.url + `/api/${target.organization}/_search?type=logs`, data, {
       showErrorAlert: false,
     });
+  }
+
+  resetQueryCache() {
+    this.cachedQuery = {
+      requestQuery: '',
+      isFetching: false,
+      data: null,
+      promise: null,
+    };
   }
 
   async testDatasource() {

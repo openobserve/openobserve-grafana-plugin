@@ -10,7 +10,7 @@ export const buildQuery = (queryData: MyQuery, timestamps: TimeRange, streamFiel
         sql: 'select * from "[INDEX_NAME]" [WHERE_CLAUSE]',
         start_time: timestamps.startTimeInMicro,
         end_time: timestamps.endTimeInMirco,
-        size: 1000,
+        size: 300,
       },
       aggs: {
         histogram:
