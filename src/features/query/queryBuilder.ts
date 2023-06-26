@@ -66,6 +66,8 @@ export const buildQuery = (queryData: MyQuery, timestamps: TimeRange, streamFiel
 
     if (queryData.sqlMode) {
       req.query.sql = queryData.query;
+      req.query['sql_mode'] = 'full';
+      delete req.aggs;
     }
 
     if (!queryData.sqlMode) {
@@ -105,7 +107,9 @@ export const buildQuery = (queryData: MyQuery, timestamps: TimeRange, streamFiel
 
     req['encoding'] = 'base64';
     req.query.sql = b64EncodeUnicode(req.query.sql);
-    req.aggs.histogram = b64EncodeUnicode(req.aggs.histogram);
+    if (!queryData.sqlMode) {
+      req.aggs.histogram = b64EncodeUnicode(req.aggs.histogram);
+    }
 
     return req;
   } catch (e) {

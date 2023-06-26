@@ -67,6 +67,11 @@ export class DataSource
             this.resetQueryCache();
           });
       }
+
+      if (target?.refId?.includes(REF_ID_STARTER_LOG_VOLUME) && target.sqlMode) {
+        return getGraphDataFrame({}, target);
+      }
+
       this.cachedQuery.requestQuery = JSON.stringify(reqData);
       this.cachedQuery.isFetching = true;
       return this.doRequest(target, reqData)
