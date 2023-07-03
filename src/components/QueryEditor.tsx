@@ -11,11 +11,17 @@ import { cloneDeep } from 'lodash';
 
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
 
-export const QueryEditor = ({ query, onChange, onRunQuery, datasource }: Props) => {
+export const QueryEditor = ({ query, onChange, onRunQuery, datasource, app, data }: Props) => {
   const [streamDetails, setStreamDetails]: any = useState({});
   const [streamOptions, setStreamOptions]: any = useState([]);
   const [orgOptions, setOrgOptions]: any = useState([]);
   const [isMounted, setIsMounted]: any = useState(false);
+
+  const isInDashboard = useMemo(() => app === 'panel-editor', [app]);
+
+  const getTimeStampColumnName = () => {
+    return datasource.instanceSettings?.jsonData?.timestamp_column || '_timestamp';
+  };
 
   useEffect(() => {
     getOrganizations({ url: datasource.url, page_num: 0, page_size: 1000, sort_by: 'id' })
@@ -39,7 +45,7 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource }: Props) 
               ...query,
               stream: streams[0].name,
               organization: orgs.data[0].name,
-              sqlMode: false,
+              sqlMode: isInDashboard ? true : false,
             });
           }
           setIsMounted(true);
@@ -82,8 +88,14 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource }: Props) 
   };
 
   const updateQuery = () => {
-    let newQuery = query.query;
-    if (query.sqlMode) {
+    let newQuery = query.query || '';
+    if (isInDashboard) {
+      if (!newQuery) {
+        newQuery = `select histogram(${getTimeStampColumnName()}) AS x_axis_1, count(*) AS y_axis_1 from "${
+          query.stream
+        }" GROUP BY x_axis_1 ORDER BY x_axis_1`;
+      }
+    } else if (query.sqlMode) {
       let whereClause = '';
       if (newQuery.trim().length) {
         whereClause = 'WHERE ' + newQuery.trim();
@@ -203,24 +215,26 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource }: Props) 
           />
         </div>
       </div>
-      <div
-        className={css`
-          display: flex;
-          align-items: center;
-          padding-bottom: 0.5rem;
-        `}
-      >
-        <InlineLabel
-          data-testid="query-editor-sql-mode-label"
+      {!isInDashboard && (
+        <div
           className={css`
-            width: fit-content;
+            display: flex;
+            align-items: center;
+            padding-bottom: 0.5rem;
           `}
-          transparent={true}
         >
-          SQL Mode
-        </InlineLabel>
-        <Switch data-testid="query-editor-sql-mode-switch" value={!!query.sqlMode} onChange={toggleSqlMode} />
-      </div>
+          <InlineLabel
+            data-testid="query-editor-sql-mode-label"
+            className={css`
+              width: fit-content;
+            `}
+            transparent={true}
+          >
+            SQL Mode
+          </InlineLabel>
+          <Switch data-testid="query-editor-sql-mode-switch" value={!!query.sqlMode} onChange={toggleSqlMode} />
+        </div>
+      )}
       {query.stream && (
         <ZincEditor
           key={generateEditorId}
@@ -230,6 +244,7 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource }: Props) 
           getFields={streamDetails[query.stream]?.schema || []}
           isSQLMode={query.sqlMode}
           runQuery={onRunQuery}
+          timestamp_column={datasource.instanceSettings?.jsonData.timestamp_column}
           id={generateEditorId}
         />
       )}

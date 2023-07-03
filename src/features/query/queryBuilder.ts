@@ -1,7 +1,13 @@
 import { MyQuery, TimeRange } from 'types';
 import { b64EncodeUnicode } from 'utils/zincutils';
 
-export const buildQuery = (queryData: MyQuery, timestamps: TimeRange, streamFields: any[]) => {
+export const buildQuery = (
+  queryData: MyQuery,
+  timestamps: TimeRange,
+  streamFields: any[],
+  app: string,
+  timestampColumn: string
+) => {
   try {
     let query: string = queryData.query || '';
 
@@ -13,10 +19,7 @@ export const buildQuery = (queryData: MyQuery, timestamps: TimeRange, streamFiel
         size: 300,
       },
       aggs: {
-        histogram:
-          'select histogram(' +
-          '_timestamp' +
-          ", '[INTERVAL]') AS zo_sql_key, count(*) AS zo_sql_num from query GROUP BY zo_sql_key ORDER BY zo_sql_key",
+        histogram: `select histogram(${timestampColumn}, '[INTERVAL]') AS zo_sql_key, count(*) AS zo_sql_num from query GROUP BY zo_sql_key ORDER BY zo_sql_key`,
       },
     };
 
@@ -62,6 +65,10 @@ export const buildQuery = (queryData: MyQuery, timestamps: TimeRange, streamFiel
       req.aggs.histogram = req.aggs.histogram.replaceAll('[INTERVAL]', chartInterval);
     } else {
       return false;
+    }
+
+    if (app !== 'explore') {
+      req.query.size = 0;
     }
 
     if (queryData.sqlMode) {

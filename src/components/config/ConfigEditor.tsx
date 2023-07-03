@@ -12,16 +12,12 @@ export function ConfigEditor(props: Props) {
   const [timestampName, setTimestampName] = useState('');
 
   useEffect(() => {
-    const timestamp_column = options?.jsonData?.timestamp_column || '_timestamp';
-    if (timestamp_column) {
-      setTimestampName(timestamp_column);
-    }
-
+    updateTimestampName(options?.jsonData?.timestamp_column);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const updateTimestampName = (name: string) => {
-    if (name === '') {
+    if (!!!name) {
       name = '_timestamp';
     }
     setTimestampName(name);
