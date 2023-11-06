@@ -58,7 +58,6 @@ export class DataSource
       }
       const reqData = buildQuery(target, timestamps, this.streamFields, options.app, this.timestampColumn);
       if (JSON.stringify(reqData) === this.cachedQuery.requestQuery) {
-        console.log('returning cached data');
         return this.cachedQuery.data
           ?.then((res) => {
             if (target?.refId?.includes(REF_ID_STARTER_LOG_VOLUME)) {
