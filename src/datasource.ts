@@ -29,6 +29,7 @@ export class DataSource
   url: string;
   streamFields: any[];
   cachedQuery: CachedQuery;
+  timestampColumn: string;
 
   constructor(instanceSettings: DataSourceInstanceSettings<MyDataSourceOptions>) {
     super(instanceSettings);
@@ -41,6 +42,7 @@ export class DataSource
       data: null,
       promise: null,
     };
+    this.timestampColumn = instanceSettings.jsonData.timestamp_column;
   }
 
   async query(options: DataQueryRequest<MyQuery>): Promise<DataQueryResponse> {
@@ -54,7 +56,7 @@ export class DataSource
           };
         });
       }
-      const reqData = buildQuery(target, timestamps, this.streamFields);
+      const reqData = buildQuery(target, timestamps, this.streamFields, options.app, this.timestampColumn);
       if (JSON.stringify(reqData) === this.cachedQuery.requestQuery) {
         return this.cachedQuery.data
           ?.then((res) => {
@@ -68,17 +70,25 @@ export class DataSource
           });
       }
 
-      if (target?.refId?.includes(REF_ID_STARTER_LOG_VOLUME) && target.sqlMode) {
-        return getGraphDataFrame({}, target);
+      // As we don't show histogram for sql mode in explore
+      if (options.app === 'explore' && target?.refId?.includes(REF_ID_STARTER_LOG_VOLUME) && target.sqlMode) {
+        return getGraphDataFrame([], target, options.app);
       }
 
       this.cachedQuery.requestQuery = JSON.stringify(reqData);
       this.cachedQuery.isFetching = true;
       return this.doRequest(target, reqData)
         .then((response) => {
-          const graphDataFrame = getGraphDataFrame(response, target);
-          const logsDataFrame = getLogsDataFrame(response, target, this.streamFields);
+          if (options.app === 'panel-editor' || options.app === 'dashboard') {
+            return getGraphDataFrame(response.hits, target, options.app);
+          }
+
+          const logsDataFrame = getLogsDataFrame(response.hits, target, this.streamFields, this.timestampColumn);
+
+          const graphDataFrame = getGraphDataFrame(response?.aggs?.histogram || [], target, options.app);
+
           this.cachedQuery.promise?.resolve({ graph: graphDataFrame, logs: logsDataFrame });
+
           if (target?.refId?.includes(REF_ID_STARTER_LOG_VOLUME)) {
             return graphDataFrame;
           }

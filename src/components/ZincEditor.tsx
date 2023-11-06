@@ -10,9 +10,10 @@ interface Props {
   runQuery: () => void;
   isSQLMode: boolean;
   id: string;
+  timestamp_column: string | undefined;
 }
 
-export const ZincEditor = ({ query, onChange, getFields, runQuery, isSQLMode, id }: Props): any => {
+export const ZincEditor = ({ query, onChange, getFields, runQuery, isSQLMode, id, timestamp_column }: Props): any => {
   const options: monacoTypes.editor.IStandaloneEditorConstructionOptions = {
     wordWrap: 'on',
     lineNumbers: 'on',
@@ -148,7 +149,7 @@ export const ZincEditor = ({ query, onChange, getFields, runQuery, isSQLMode, id
     ];
 
     getFields.forEach((field: any) => {
-      if (field.name === '_timestamp') {
+      if (field.name === (timestamp_column || '_timestamp')) {
         return;
       }
       let itemObj = {

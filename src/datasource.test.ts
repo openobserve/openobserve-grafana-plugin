@@ -116,6 +116,7 @@ describe('DataSource', () => {
     isDefault: false,
     access: 'proxy',
     jsonData: {
+      timestamp_column: '_timestamp',
       url: '/api/datasources/proxy/uid/fd886f75-fdd9-444b-8868-be92687ff464',
     },
     readOnly: false,
@@ -397,7 +398,7 @@ describe('DataSource', () => {
       encoding: 'base64',
     };
     beforeEach(async () => {
-      result = buildQuery(queryData, timestamps, queryData.streamFields);
+      result = buildQuery(queryData, timestamps, queryData.streamFields, 'explore', '_timestamp');
     });
     it('should return query request data', () => {
       expect(JSON.stringify(result)).toMatch(JSON.stringify(expectedReq));
