@@ -2,7 +2,6 @@ import { groupBy } from 'lodash';
 import { from, isObservable, Observable, ObservableInput } from 'rxjs';
 import {
   DataFrame,
-  DataQuery,
   DataQueryRequest,
   DataQueryResponse,
   DataSourceApi,
@@ -19,7 +18,8 @@ import {
   FieldType,
   toDataFrame,
 } from '@grafana/data';
-import { BarAlignment, GraphDrawStyle, StackingMode } from '@grafana/schema';
+
+import { BarAlignment, GraphDrawStyle, StackingMode, DataQuery } from '@grafana/schema';
 import { colors } from '@grafana/ui';
 import { getTheme } from 'utils/zincutils';
 
