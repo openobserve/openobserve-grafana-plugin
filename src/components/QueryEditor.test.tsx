@@ -54,6 +54,7 @@ const instanceSettings: DataSourceInstanceSettings<MyDataSourceOptions> = {
   isDefault: false,
   access: 'proxy',
   jsonData: {
+    timestamp_column: '_timestamp',
     url: '/api/datasources/proxy/uid/fd886f75-fdd9-444b-8868-be92687ff464',
   },
   readOnly: false,
