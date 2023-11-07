@@ -79,14 +79,14 @@ export function queryLogsVolume<TQuery extends DataQuery, TOptions extends DataS
         observer.complete();
       },
       next: (dataQueryResponse: DataQueryResponse) => {
-        const { error } = dataQueryResponse;
-        if (error !== undefined) {
+        const { errors } = dataQueryResponse;
+        if (errors !== undefined) {
           observer.next({
             state: LoadingState.Error,
-            error,
+            errors,
             data: [],
           });
-          observer.error(error);
+          observer.error(errors);
         } else {
           const framesByRefId = groupBy(dataQueryResponse.data, 'refId');
 
@@ -172,14 +172,14 @@ export function queryLogsSample<TQuery extends DataQuery, TOptions extends DataS
         observer.complete();
       },
       next: (dataQueryResponse: DataQueryResponse) => {
-        const { error } = dataQueryResponse;
-        if (error !== undefined) {
+        const { errors } = dataQueryResponse;
+        if (errors !== undefined) {
           observer.next({
             state: LoadingState.Error,
-            error,
+            errors,
             data: [],
           });
-          observer.error(error);
+          observer.error(errors);
         } else {
           rawLogsSample = dataQueryResponse.data.map((dataFrame) => {
             const frame = toDataFrame(dataFrame);
