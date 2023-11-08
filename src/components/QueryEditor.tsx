@@ -16,6 +16,7 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource, app, data
   const [streamOptions, setStreamOptions]: any = useState([]);
   const [orgOptions, setOrgOptions]: any = useState([]);
   const [isMounted, setIsMounted]: any = useState(false);
+  const [isLoading, setIsLoading]: any = useState([]);
 
   const isInDashboard = useMemo(() => app === 'panel-editor', [app]);
 
@@ -23,7 +24,16 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource, app, data
     return datasource.instanceSettings?.jsonData?.timestamp_column || '_timestamp';
   };
 
+  const startLoading = () => {
+    setIsLoading([...isLoading, true]);
+  };
+
+  const stopLoading = () => {
+    setIsLoading(isLoading.slice(1));
+  };
+
   useEffect(() => {
+    startLoading();
     getOrganizations({ url: datasource.url, page_num: 0, page_size: 1000, sort_by: 'id' })
       .then((orgs: any) => {
         setOrgOptions([
@@ -32,26 +42,42 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource, app, data
             value: org.name,
           })),
         ]);
-        setupStreams(orgs.data[0].name).then((streams: any) => {
-          datasource.updateStreamFields(streams[0].schema);
-          setStreamOptions([
-            ...Object.values(streams).map((stream: any) => ({
-              label: stream.name,
-              value: stream.name,
-            })),
-          ]);
-          if (!(query.organization && query.stream && query.hasOwnProperty('sqlMode'))) {
-            onChange({
-              ...query,
-              stream: streams[0].name,
-              organization: orgs.data[0].name,
-              sqlMode: isInDashboard ? true : false,
-            });
-          }
-          setIsMounted(true);
-        });
+
+        let seletedOrg: string = orgs.data[0].name;
+
+        if (isInDashboard && query.organization) {
+          seletedOrg = query.organization;
+        }
+
+        startLoading();
+        setupStreams(seletedOrg)
+          .then((streams: any) => {
+            datasource.updateStreamFields(streams[0].schema);
+            setStreamOptions([
+              ...Object.values(streams).map((stream: any) => ({
+                label: stream.name,
+                value: stream.name,
+              })),
+            ]);
+
+            if (!(query.organization && query.stream && query.hasOwnProperty('sqlMode'))) {
+              onChange({
+                ...query,
+                stream: streams[0].name,
+                organization: orgs.data[0].name,
+                sqlMode: isInDashboard ? true : false,
+              });
+            } else if (isInDashboard && query.organization && query.stream && query.query) {
+              updateQuery();
+              onRunQuery();
+            }
+
+            setIsMounted(true);
+          })
+          .finally(() => stopLoading());
       })
-      .catch((err) => console.log(err));
+      .catch((err) => console.log(err))
+      .finally(() => stopLoading());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -125,21 +151,24 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource, app, data
   };
 
   const orgUpdated = (organization: any) => {
-    setupStreams(organization.value).then((streams: any) => {
-      onChange({
-        ...query,
-        query: '',
-        stream: streams[0].name,
-        organization: organization.value,
-      });
-      datasource.updateStreamFields(cloneDeep(streams[0].schema));
-      setStreamOptions([
-        ...streams.map((stream: any) => ({
-          label: stream.name,
-          value: stream.name,
-        })),
-      ]);
-    });
+    startLoading();
+    setupStreams(organization.value)
+      .then((streams: any) => {
+        onChange({
+          ...query,
+          query: '',
+          stream: streams[0].name,
+          organization: organization.value,
+        });
+        datasource.updateStreamFields(cloneDeep(streams[0].schema));
+        setStreamOptions([
+          ...streams.map((stream: any) => ({
+            label: stream.name,
+            value: stream.name,
+          })),
+        ]);
+      })
+      .finally(() => stopLoading());
   };
 
   const toggleSqlMode = () => {
@@ -186,6 +215,7 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource, app, data
             options={orgOptions}
             value={query.organization}
             onChange={orgUpdated}
+            isLoading={isLoading.length > 0}
           />
         </div>
         <div
@@ -212,6 +242,7 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource, app, data
             options={streamOptions}
             value={query.stream}
             onChange={streamUpdated}
+            isLoading={isLoading.length > 0}
           />
         </div>
       </div>
