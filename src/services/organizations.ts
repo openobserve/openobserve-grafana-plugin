@@ -19,7 +19,7 @@ export function getOrganizations({
     getBackendSrv()
       .get(
         url +
-          `/api/default/organizations?page_num=${page_num}&page_size=${page_size}&sort_by=${sort_by}&desc=${desc}&name=${name}`
+          `/api/organizations?page_num=${page_num}&page_size=${page_size}&sort_by=${sort_by}&desc=${desc}&name=${name}`
       )
       .then((response) => {
         resolve(response);

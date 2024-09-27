@@ -86,8 +86,8 @@ describe('DataSource', () => {
         description: 'Zinc observe',
         links: [],
         logos: {
-          small: 'public/plugins/zinc-grafanatest-datasource/img/logo.svg',
-          large: 'public/plugins/zinc-grafanatest-datasource/img/logo.svg',
+          small: 'public/plugins/zinc-grafanatest-datasource/img/logo.png',
+          large: 'public/plugins/zinc-grafanatest-datasource/img/logo.png',
         },
         build: {},
         screenshots: [],

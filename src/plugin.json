@@ -6,14 +6,12 @@
   "info": {
     "description": "OpenObserve",
     "author": {
-      "name": "ZincLabs"
+      "name": "OpenObserve"
     },
-    "keywords": [
-      "OpenObserve"
-    ],
+    "keywords": ["OpenObserve"],
     "logos": {
-      "small": "img/logo.svg",
-      "large": "img/logo.svg"
+      "small": "img/logo.png",
+      "large": "img/logo.png"
     },
     "links": [],
     "screenshots": [],

@@ -1,10 +1,9 @@
 <!-- This README file is going to be the one displayed on the Grafana.com website for your plugin -->
 
-# ZincObserve 
+# OpenObserve
 
-ZincObserve
-
+OpenObserve
 
 # License
 
-ZincObserve commercial license. Please contact hello@zinclabs.io for more information.
+OpenObserve commercial license. Please contact hello@openobserve.ai for more information.
