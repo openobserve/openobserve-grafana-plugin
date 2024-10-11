@@ -32,12 +32,6 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource, app, data
     setIsLoading(isLoading.slice(1));
   };
 
-  const isInDashboard = useMemo(() => app === 'panel-editor', [app]);
-
-  const getTimeStampColumnName = () => {
-    return datasource.instanceSettings?.jsonData?.timestamp_column || '_timestamp';
-  };
-
   useEffect(() => {
     startLoading();
     getOrganizations({ url: datasource.url, page_num: 0, page_size: 1000, sort_by: 'id' })
