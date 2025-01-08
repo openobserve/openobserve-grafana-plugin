@@ -57,7 +57,7 @@
     "eslint-plugin-deprecation": "^2.0.0"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "dependencies": {
     "@emotion/css": "^11.1.3",
