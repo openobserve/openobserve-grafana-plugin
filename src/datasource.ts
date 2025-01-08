@@ -72,7 +72,7 @@ export class DataSource
 
       // As we don't show histogram for sql mode in explore
       if (options.app === 'explore' && target?.refId?.includes(REF_ID_STARTER_LOG_VOLUME) && target.sqlMode) {
-        return getGraphDataFrame([], target, options.app);
+        return getGraphDataFrame([], target, options.app, this.timestampColumn);
       }
 
       this.cachedQuery.requestQuery = JSON.stringify(reqData);
@@ -80,12 +80,12 @@ export class DataSource
       return this.doRequest(target, reqData)
         .then((response) => {
           if (options.app === 'panel-editor' || options.app === 'dashboard') {
-            return getGraphDataFrame(response.hits, target, options.app);
+            return getGraphDataFrame(response.hits, target, options.app, this.timestampColumn);
           }
 
           const logsDataFrame = getLogsDataFrame(response.hits, target, this.streamFields, this.timestampColumn);
 
-          const graphDataFrame = getGraphDataFrame(response?.aggs?.histogram || [], target, options.app);
+          const graphDataFrame = getGraphDataFrame(response?.aggs?.histogram || [], target, options.app, this.timestampColumn);
 
           this.cachedQuery.promise?.resolve({ graph: graphDataFrame, logs: logsDataFrame });
 

@@ -36,7 +36,12 @@ export const getLogsDataFrame = (
   return logsData;
 };
 
-export const getGraphDataFrame = (data: any, target: MyQuery, app: string) => {
+export const getGraphDataFrame = (
+  data: any,
+  target: MyQuery,
+  app: string,
+  timestampColumn = '_timestamp'
+) => {
   const graphData = getDefaultDataFrame(target.refId, 'graph');
 
   let fields = ['zo_sql_key', 'zo_sql_num'];
@@ -50,7 +55,7 @@ export const getGraphDataFrame = (data: any, target: MyQuery, app: string) => {
   }
 
   for (let i = 0; i < fields.length; i++) {
-    if (fields[i] === '_timestamp') {
+    if (fields[i] === timestampColumn) {
       graphData.addField({
         config: {
           filterable: true,
@@ -70,7 +75,7 @@ export const getGraphDataFrame = (data: any, target: MyQuery, app: string) => {
   }
 
   data.forEach((log: any) => {
-    graphData.add(getField(log, fields, '_timestamp'));
+    graphData.add(getField(log, fields, timestampColumn));
   });
 
   return graphData;
