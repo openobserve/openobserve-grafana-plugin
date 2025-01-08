@@ -51,17 +51,17 @@ export const getGraphDataFrame = (data: any, target: MyQuery, app: string) => {
 
   for (let i = 0; i < fields.length; i++) {
     if (fields[i] === '_timestamp') {
-  graphData.addField({
-    config: {
-      filterable: true,
-    },
-    name: 'Time',
-    type: FieldType.time,
-  });
+      graphData.addField({
+        config: {
+          filterable: true,
+        },
+        name: 'Time',
+        type: FieldType.time,
+      });
     } else {
-    graphData.addField({
-      name: fields[i],
-    });
+      graphData.addField({
+        name: fields[i],
+      });
     }
   }
 
@@ -140,7 +140,9 @@ const getColumnsFromQuery = (query: string) => {
 
     // If alias exists, use that, otherwise use column name
     if (aliasMatch) {
-      columnNames.push(aliasMatch[1]);
+      // SQL alias may have quotes, strip those.
+      let stripped = aliasMatch[1].replace(/^['"]|['"]$/g, '');
+      columnNames.push(stripped);
     } else {
       columnNames.push(column);
     }
