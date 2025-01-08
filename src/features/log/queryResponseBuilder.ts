@@ -49,6 +49,8 @@ export const getGraphDataFrame = (data: any, target: MyQuery, app: string) => {
     }
   }
 
+  for (let i = 0; i < fields.length; i++) {
+    if (fields[i] === '_timestamp') {
   graphData.addField({
     config: {
       filterable: true,
@@ -56,12 +58,11 @@ export const getGraphDataFrame = (data: any, target: MyQuery, app: string) => {
     name: 'Time',
     type: FieldType.time,
   });
-
-  for (let i = 1; i < fields.length; i++) {
+    } else {
     graphData.addField({
       name: fields[i],
-      type: FieldType.number,
     });
+    }
   }
 
   if (!data.length) {
