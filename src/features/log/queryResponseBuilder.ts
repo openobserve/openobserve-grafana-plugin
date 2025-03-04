@@ -36,7 +36,12 @@ export const getLogsDataFrame = (
   return logsData;
 };
 
-export const getGraphDataFrame = (data: any, target: MyQuery, app: string) => {
+export const getGraphDataFrame = (
+  data: any,
+  target: MyQuery,
+  app: string,
+  timestampColumn = '_timestamp'
+) => {
   const graphData = getDefaultDataFrame(target.refId, 'graph');
 
   let fields = ['zo_sql_key', 'zo_sql_num'];
@@ -49,19 +54,20 @@ export const getGraphDataFrame = (data: any, target: MyQuery, app: string) => {
     }
   }
 
-  graphData.addField({
-    config: {
-      filterable: true,
-    },
-    name: 'Time',
-    type: FieldType.time,
-  });
-
-  for (let i = 1; i < fields.length; i++) {
-    graphData.addField({
-      name: fields[i],
-      type: FieldType.number,
-    });
+  for (let i = 0; i < fields.length; i++) {
+    if (fields[i] === timestampColumn) {
+      graphData.addField({
+        config: {
+          filterable: true,
+        },
+        name: 'Time',
+        type: FieldType.time,
+      });
+    } else {
+      graphData.addField({
+        name: fields[i],
+      });
+    }
   }
 
   if (!data.length) {
@@ -69,19 +75,31 @@ export const getGraphDataFrame = (data: any, target: MyQuery, app: string) => {
   }
 
   data.forEach((log: any) => {
-    graphData.add(getField(log, fields));
+    graphData.add(getField(log, fields, timestampColumn));
   });
 
   return graphData;
 };
 
-const getField = (log: any, columns: any) => {
-  let field: any = {
-    Time: new Date(log[columns[0]] + 'Z').getTime(),
-  };
+const getField = (log: any, columns: any, timestampColumn: string) => {
+  let field: any = {};
 
-  for (let i = 1; i < columns.length; i++) {
-    field[columns[i]] = log[columns[i]];
+  for (let i = 0; i < columns.length; i++) {
+    let col_name = columns[i];
+    let col_value = log[col_name]
+    if (col_name === timestampColumn) {
+      // We have to convert microseconds if we receive them
+      // 500 billion / year 17814 is probably a good threshold for milliseconds
+      if (col_value > 500_000_000_000) {
+        col_value = convertTimeToMs(col_value);
+        field["Time"] = col_value;
+      } else {
+        // Convert any other date fmt
+        field["Time"] = new Date(col_value).getTime();
+      }
+    } else {
+      field[col_name] = log[col_name];
+    }
   }
 
   return field;
@@ -127,7 +145,9 @@ const getColumnsFromQuery = (query: string) => {
 
     // If alias exists, use that, otherwise use column name
     if (aliasMatch) {
-      columnNames.push(aliasMatch[1]);
+      // SQL alias may have quotes, strip those.
+      let stripped = aliasMatch[1].replace(/^['"]|['"]$/g, '');
+      columnNames.push(stripped);
     } else {
       columnNames.push(column);
     }
