@@ -12,10 +12,12 @@ export interface MyQuery extends DataQuery {
     rows: number;
   };
   streamFields: any[];
+  displayMode?: 'auto' | 'graph' | 'logs';
 }
 
 export const DEFAULT_QUERY: Partial<MyQuery> = {
   constant: 6.5,
+  displayMode: 'auto',
 };
 
 /**
