@@ -58,7 +58,7 @@ export const getGraphDataFrame = (
   }
 
   for (let i = 0; i < fields.length; i++) {
-    if (isTimeField(fields[i],timestampColumn)) {
+    if (isTimeField(fields[i], timestampColumn)) {
       graphData.addField({
         config: {
           filterable: true,
