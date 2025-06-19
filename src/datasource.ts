@@ -9,7 +9,7 @@ import {
   LogLevel,
 } from '@grafana/data';
 import { Observable } from 'rxjs';
-import { getBackendSrv } from '@grafana/runtime';
+import { getBackendSrv, getTemplateSrv } from '@grafana/runtime';
 import { queryLogsVolume } from './features/log/LogsModel';
 
 import { MyQuery, MyDataSourceOptions, CachedQuery } from './types';
@@ -45,9 +45,19 @@ export class DataSource
     this.timestampColumn = instanceSettings.jsonData.timestamp_column;
   }
 
+  applyTemplateVariables(query: MyQuery, scopedVars: any): MyQuery {
+    return {
+      ...query,
+      query: getTemplateSrv().replace(query.query || '', scopedVars),
+    };
+  }
+
   async query(options: DataQueryRequest<MyQuery>): Promise<DataQueryResponse> {
     const timestamps = getConsumableTime(options.range);
-    const promises = options.targets.map((target) => {
+    const interpolatedTargets = options.targets.map((target) => {
+      return this.applyTemplateVariables(target, options.scopedVars);
+    });
+    const promises = interpolatedTargets.map((target) => {
       if (!this.cachedQuery.data) {
         this.cachedQuery.data = new Promise((resolve, reject) => {
           this.cachedQuery.promise = {
