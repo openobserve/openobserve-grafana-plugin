@@ -57,11 +57,22 @@ export class DataSource
         });
       }
       const reqData = buildQuery(target, timestamps, this.streamFields, options.app, this.timestampColumn);
-      if (JSON.stringify(reqData) === this.cachedQuery.requestQuery) {
+      const cacheKey = JSON.stringify({
+        reqData,
+        displayMode: target.displayMode ?? 'auto',
+      });
+      
+      if (cacheKey === this.cachedQuery.requestQuery) {
         return this.cachedQuery.data
           ?.then((res) => {
+            const mode = target.displayMode || 'auto';
             if (target?.refId?.includes(REF_ID_STARTER_LOG_VOLUME)) {
               return res.graph;
+            }
+            if (options.app === 'panel-editor' || options.app === 'dashboard') {
+              if(mode === 'graph' || mode === 'auto') {
+                return res.graph;
+              }
             }
             return res.logs;
           })
@@ -75,12 +86,16 @@ export class DataSource
         return getGraphDataFrame([], target, options.app, this.timestampColumn);
       }
 
-      this.cachedQuery.requestQuery = JSON.stringify(reqData);
+      this.cachedQuery.requestQuery = cacheKey;
       this.cachedQuery.isFetching = true;
       return this.doRequest(target, reqData)
         .then((response) => {
           if (options.app === 'panel-editor' || options.app === 'dashboard') {
-            return getGraphDataFrame(response.hits, target, options.app, this.timestampColumn);
+            const mode = target.displayMode || 'auto';
+            const logsDf = getLogsDataFrame(response.hits, target, this.streamFields, this.timestampColumn);
+            const graphDf = getGraphDataFrame(response.hits, target, options.app, this.timestampColumn);
+            this.cachedQuery.promise?.resolve({ graph: graphDf, logs: logsDf });
+            return mode === 'logs' ? logsDf : graphDf;
           }
 
           const logsDataFrame = getLogsDataFrame(response.hits, target, this.streamFields, this.timestampColumn);

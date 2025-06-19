@@ -2,6 +2,9 @@ import { FieldType, MutableDataFrame, PreferredVisualisationType } from '@grafan
 import { MyQuery } from '../../types';
 import { convertTimeToMs, getFieldType } from '../../utils/zincutils';
 
+const isTimeField = (name: string, timestampColumn: string): boolean =>
+  name === timestampColumn || name.startsWith('x_axis');
+
 export const getLogsDataFrame = (
   data: any,
   target: MyQuery,
@@ -55,7 +58,7 @@ export const getGraphDataFrame = (
   }
 
   for (let i = 0; i < fields.length; i++) {
-    if (fields[i] === timestampColumn) {
+    if (isTimeField(fields[i], timestampColumn)) {
       graphData.addField({
         config: {
           filterable: true,
@@ -87,7 +90,7 @@ const getField = (log: any, columns: any, timestampColumn: string) => {
   for (let i = 0; i < columns.length; i++) {
     let col_name = columns[i];
     let col_value = log[col_name]
-    if (col_name === timestampColumn) {
+    if (isTimeField(col_name, timestampColumn)) {
       // We have to convert microseconds if we receive them
       // 500 billion / year 17814 is probably a good threshold for milliseconds
       if (col_value > 500_000_000_000) {

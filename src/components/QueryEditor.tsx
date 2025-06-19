@@ -17,6 +17,8 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource, app, data
   const [orgOptions, setOrgOptions]: any = useState([]);
   const [isMounted, setIsMounted]: any = useState(false);
   const [isLoading, setIsLoading]: any = useState([]);
+  const [displayOptions, setDisplayOptions]: any = useState([]);
+
 
   const isInDashboard = useMemo(() => app === 'panel-editor', [app]);
 
@@ -31,6 +33,14 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource, app, data
   const stopLoading = () => {
     setIsLoading(isLoading.slice(1));
   };
+
+  useEffect(() => {
+    setDisplayOptions([
+      { label: 'Auto', value: 'auto' },
+      { label: 'Force Graph', value: 'graph' },
+      { label: 'Force Logs', value: 'logs' },
+    ]);
+  }, []);
 
   useEffect(() => {
     startLoading();
@@ -66,6 +76,7 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource, app, data
                 stream: streams[0].name,
                 organization: orgs.data[0].name,
                 sqlMode: isInDashboard ? true : false,
+                displayMode: query.displayMode ?? 'auto'
               });
             } else if (isInDashboard && query.organization && query.stream && query.query) {
               updateQuery();
@@ -135,6 +146,11 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource, app, data
       query: newQuery,
       sqlMode: query.sqlMode,
     });
+  };
+
+  const onDisplayModeChange = (displayMode: any) => {
+    const newMode = displayMode.value as MyQuery['displayMode'];
+    onChange({ ...query, displayMode: newMode });
   };
 
   const onChangeQuery = ({ value, sqlMode }: { value: string; sqlMode: boolean }) => {
@@ -266,6 +282,18 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource, app, data
           <Switch data-testid="query-editor-sql-mode-switch" value={!!query.sqlMode} onChange={toggleSqlMode} />
         </div>
       )}
+      {/* Display Mode selector */}
+      <div className={css`display: flex; align-items: center; padding-bottom: 0.5rem;`}>
+        <InlineLabel className={css`width: fit-content;`} transparent>
+          Display Mode
+        </InlineLabel>
+        <Select
+          options={displayOptions}
+          value={displayOptions.find((o: any) => o.value === query.displayMode) || displayOptions[0]}
+          onChange={onDisplayModeChange}
+          width={20}
+        />
+      </div>
       {query.stream && (
         <ZincEditor
           key={generateEditorId}
