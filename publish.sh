@@ -2,9 +2,9 @@
 
 npm run build
 mv dist zo_gp
-tar -czvf zo_gp.tar.gz ./zo_gp/
+zip -r zo_gp.zip ./zo_gp/
 
-aws s3 cp zo_gp.tar.gz s3://zincsearch-releases/zo_gp/zo_gp.tar.gz
+aws s3 cp zo_gp.zip s3://zincsearch-releases/zo_gp/zo_gp.zip
 
-rm -rf zo_gp.tar.gz zo_gp
+rm -rf zo_gp.zip zo_gp
 
