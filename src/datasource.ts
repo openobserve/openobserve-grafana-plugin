@@ -8,12 +8,14 @@ import {
   SupplementaryQueryType,
   SupplementaryQueryOptions,
   LogLevel,
+  CustomVariableSupport,
 } from '@grafana/data';
-import { Observable } from 'rxjs';
+import { Observable, from } from 'rxjs';
 import { getBackendSrv, getTemplateSrv } from '@grafana/runtime';
 import { queryLogsVolume } from './features/log/LogsModel';
 
-import { MyQuery, MyDataSourceOptions, CachedQuery } from './types';
+import { MyQuery, MyDataSourceOptions, CachedQuery, VariableQuery } from './types';
+import { VariableQueryEditor } from './components/VariableQueryEditor';
 import { logsErrorMessage, getConsumableTime } from 'utils/zincutils';
 import { getOrganizations } from 'services/organizations';
 import { cloneDeep } from 'lodash';
@@ -55,6 +57,7 @@ export class DataSource
     this.timestampColumn = instanceSettings.jsonData.timestamp_column;
     this.histogramQuery = null;
     this.histogramTimestampColumn = "zo_sql_key"; // In histogram query response, we get zo_sql_key as timestamp column by default. Changing this will break things.
+    this.variables = new VariableSupport(this);
   }
 
   applyTemplateVariables(query: MyQuery, scopedVars: any): MyQuery {
@@ -464,5 +467,48 @@ export class DataSource
         targets: logsVolumeRequest.targets,
       }
     );
+  }
+}
+
+class VariableSupport extends CustomVariableSupport<DataSource, VariableQuery, MyQuery, MyDataSourceOptions> {
+  editor = VariableQueryEditor;
+
+  constructor(private ds: DataSource) {
+    super();
+  }
+
+  query = (request: DataQueryRequest<VariableQuery>): Observable<DataQueryResponse> => {
+    return from(this.executeQuery(request));
+  };
+
+  private async executeQuery(request: DataQueryRequest<VariableQuery>): Promise<DataQueryResponse> {
+    const target = request.targets[0];
+    if (!target?.organization || !target?.query) {
+      return { data: [] };
+    }
+
+    const now = Date.now() * 1000;
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000 * 1000;
+
+    try {
+      const response = await this.ds.doRequest({ organization: target.organization }, {
+        query: { sql: target.query, start_time: thirtyDaysAgo, end_time: now, size: 500 },
+      });
+
+      const hits: any[] = response.hits || [];
+      if (hits.length === 0) { return { data: [] }; }
+
+      const firstKey = Object.keys(hits[0])[0];
+      // Return MetricFindValue objects directly — Grafana's variable runner accepts these
+      // in DataQueryResponse.data without needing DataFrame processing
+      const data = hits
+        .map((hit) => hit[firstKey])
+        .filter((v) => v !== undefined && v !== null)
+        .map((v) => ({ text: String(v), value: String(v) }));
+
+      return { data };
+    } catch {
+      return { data: [] };
+    }
   }
 }
