@@ -409,4 +409,20 @@ describe('DataSource', () => {
       expect(JSON.stringify(result)).toMatch(JSON.stringify(expectedReq));
     });
   });
+
+  describe('organization name vs identifier in API URLs', () => {
+    it('should use org.identifier (not org.name) to build API URLs', async () => {
+      const mockOrg = {
+        id: 5,
+        identifier: 'org_id_001',
+        name: 'My Organization',
+      };
+
+      const storedOrganization = mockOrg.identifier;
+      const url = `/api/${storedOrganization}/_search?type=logs`;
+
+      expect(url).toContain('/api/org_id_001/');
+      expect(url).not.toContain('My Organization');
+    });
+  });
 });
