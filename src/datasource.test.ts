@@ -3,6 +3,10 @@ import { DataSource } from './datasource';
 import { DataSourceInstanceSettings, PluginSignatureStatus, PluginType } from '@grafana/data';
 import { buildQuery } from 'features/query/queryBuilder';
 
+jest.mock('@grafana/ui', () => ({
+  colors: ['#7EB26D', '#EAB839', '#6ED0E0', '#EF843C', '#E24D42', '#1F78C4', '#BA43A9', '#705DA0'],
+}));
+
 let DateTime = {
   add: jest.fn(),
   set: jest.fn(),
@@ -35,39 +39,44 @@ jest.mock('rxjs', () => {
   };
 });
 
+const mockPost = jest.fn().mockResolvedValue({
+  hits: [
+    {
+      _p: 'F',
+      _timestamp: 1684219692352167,
+      kubernetes_container_hash:
+        'registry.k8s.io/ingress-nginx/controller@sha256:4ba73c697770664c1e00e9f968de14e08f606ff961c76e5d7033a4a9c593c629',
+      kubernetes_container_image: 'sha256:f2e1146a6d96ac8eebb251284f45f8569f5879c6ec894ae1335d26617d36af2d',
+      kubernetes_container_name: 'controller',
+      kubernetes_docker_id: 'e7d62026ddcae35198986225d10ca11080fac2cd1537d427e1ca5007cb9d4311',
+      kubernetes_host: 'gke-dev1-default-pool-e40c8755-duy8',
+      kubernetes_labels_app_kubernetes_io_component: 'controller',
+      kubernetes_labels_app_kubernetes_io_instance: 'ingress-nginx',
+      kubernetes_labels_app_kubernetes_io_name: 'ingress-nginx',
+      kubernetes_labels_pod_template_hash: '6f7bd4bcfb',
+      kubernetes_namespace_name: 'ingress-nginx',
+      kubernetes_pod_id: '109d2bd2-53d0-4e58-9588-69563e6891ef',
+      kubernetes_pod_name: 'ingress-nginx-controller-6f7bd4bcfb-8dslk',
+      log: '18.236.103.156 - root@example.com [16/May/2023:06:48:12 +0000] "POST /api/production_n230k19AUNT56m0/default/_json HTTP/2.0" 200 86 "-" "Fluent-Bit" 44501 0.008 [ziox-alpha1-zo1-openobserve-router-5080] [] 10.24.0.213:5080 102 0.008 200 f0455fd5afbee4926c34606fd33a30f9',
+      stream: 'stdout',
+      time: '2023-05-16T06:48:12.352167318Z',
+    },
+  ],
+});
+
 jest.mock('@grafana/runtime', () => ({
-  getBackendSrv: () => {
-    return {
-      post: jest.fn().mockResolvedValue({
-        hits: [
-          {
-            _p: 'F',
-            _timestamp: 1684219692352167,
-            kubernetes_container_hash:
-              'registry.k8s.io/ingress-nginx/controller@sha256:4ba73c697770664c1e00e9f968de14e08f606ff961c76e5d7033a4a9c593c629',
-            kubernetes_container_image: 'sha256:f2e1146a6d96ac8eebb251284f45f8569f5879c6ec894ae1335d26617d36af2d',
-            kubernetes_container_name: 'controller',
-            kubernetes_docker_id: 'e7d62026ddcae35198986225d10ca11080fac2cd1537d427e1ca5007cb9d4311',
-            kubernetes_host: 'gke-dev1-default-pool-e40c8755-duy8',
-            kubernetes_labels_app_kubernetes_io_component: 'controller',
-            kubernetes_labels_app_kubernetes_io_instance: 'ingress-nginx',
-            kubernetes_labels_app_kubernetes_io_name: 'ingress-nginx',
-            kubernetes_labels_pod_template_hash: '6f7bd4bcfb',
-            kubernetes_namespace_name: 'ingress-nginx',
-            kubernetes_pod_id: '109d2bd2-53d0-4e58-9588-69563e6891ef',
-            kubernetes_pod_name: 'ingress-nginx-controller-6f7bd4bcfb-8dslk',
-            log: '18.236.103.156 - root@example.com [16/May/2023:06:48:12 +0000] "POST /api/production_n230k19AUNT56m0/default/_json HTTP/2.0" 200 86 "-" "Fluent-Bit" 44501 0.008 [ziox-alpha1-zo1-openobserve-router-5080] [] 10.24.0.213:5080 102 0.008 200 f0455fd5afbee4926c34606fd33a30f9',
-            stream: 'stdout',
-            time: '2023-05-16T06:48:12.352167318Z',
-          },
-        ],
-      }),
-    };
-  },
+  getBackendSrv: () => ({
+    post: mockPost,
+  }),
   reportInteraction: jest.fn(),
   getTemplateSrv: () => ({
     replace: jest.fn((str) => str),
   }),
+  config: {
+    bootData: {
+      user: { theme: 'dark' },
+    },
+  },
 }));
 
 describe('DataSource', () => {
@@ -407,6 +416,30 @@ describe('DataSource', () => {
     });
     it('should return query request data', () => {
       expect(JSON.stringify(result)).toMatch(JSON.stringify(expectedReq));
+    });
+  });
+
+  describe('doRequest uses organization identifier in URL', () => {
+    beforeEach(() => {
+      mockPost.mockClear();
+    });
+
+    it('should include the org identifier (not a display name) in the API URL', async () => {
+      const target = { organization: 'org_id_001' };
+      await ds.doRequest(target, {});
+
+      expect(mockPost).toHaveBeenCalledTimes(1);
+      const url: string = mockPost.mock.calls[0][0];
+      expect(url).toContain('/api/org_id_001/_search');
+    });
+
+    it('should never URL-encode spaces (org identifier must not be a display name)', async () => {
+      const target = { organization: 'my_org_identifier' };
+      await ds.doRequest(target, {});
+
+      const url: string = mockPost.mock.calls[0][0];
+      expect(url).not.toMatch(/%20|%25|\s/);
+      expect(url).toContain('/api/my_org_identifier/_search');
     });
   });
 });

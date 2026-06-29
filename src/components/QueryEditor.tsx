@@ -49,11 +49,11 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource, app, data
         setOrgOptions([
           ...orgs.data.map((org: any) => ({
             label: org.name,
-            value: org.name,
+            value: org.identifier,
           })),
         ]);
 
-        let seletedOrg: string = orgs.data[0].name;
+        let seletedOrg: string = orgs.data[0].identifier;
 
         if (isInDashboard && query.organization) {
           seletedOrg = query.organization;
@@ -74,7 +74,7 @@ export const QueryEditor = ({ query, onChange, onRunQuery, datasource, app, data
               onChange({
                 ...query,
                 stream: streams[0].name,
-                organization: orgs.data[0].name,
+                organization: orgs.data[0].identifier,
                 sqlMode: isInDashboard ? true : false,
                 displayMode: query.displayMode ?? 'auto'
               });
