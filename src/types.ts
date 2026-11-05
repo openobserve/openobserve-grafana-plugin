@@ -41,6 +41,11 @@ export interface TimeRange {
   endTimeInMirco: number;
 }
 
+export interface VariableQuery extends DataQuery {
+  organization: string;
+  query: string;
+}
+
 export interface CachedQuery {
   requestQuery: string;
   data: Promise<any> | null;
